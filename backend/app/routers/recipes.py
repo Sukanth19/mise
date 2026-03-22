@@ -43,7 +43,7 @@ def create_recipe(
     return RecipeResponse.from_orm(recipe)
 
 
-@router.get("")
+@router.get("", response_model=List[RecipeResponse])
 def get_recipes(
     search: Optional[str] = Query(None, description="Search query for recipe titles"),
     db: Session = Depends(get_db),
@@ -56,7 +56,7 @@ def get_recipes(
     else:
         # Return all user recipes when no search query
         recipes = RecipeManager.get_user_recipes(db, user_id)
-    return {"recipes": [RecipeResponse.from_orm(recipe) for recipe in recipes]}
+    return [RecipeResponse.from_orm(recipe) for recipe in recipes]
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)

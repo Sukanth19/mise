@@ -31,9 +31,9 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       const endpoint = search ? `/api/recipes?search=${encodeURIComponent(search)}` : '/api/recipes';
-      const data = await apiClient<{ recipes: Recipe[] }>(endpoint);
-      setRecipes(data.recipes);
-      setFilteredRecipes(data.recipes);
+      const data = await apiClient<Recipe[]>(endpoint);
+      setRecipes(data);
+      setFilteredRecipes(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch recipes');
     } finally {
@@ -43,11 +43,7 @@ export default function DashboardPage() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (query.trim() === '') {
-      setFilteredRecipes(recipes);
-    } else {
-      fetchRecipes(query);
-    }
+    fetchRecipes(query.trim() === '' ? undefined : query);
   };
 
   const handleCreateRecipe = () => {
@@ -83,7 +79,7 @@ export default function DashboardPage() {
 
         {/* Search Bar */}
         <div className="mb-8">
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar onSearch={handleSearch} value={searchQuery} />
         </div>
 
         {/* Error Message */}

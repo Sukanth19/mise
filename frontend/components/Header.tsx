@@ -20,7 +20,16 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <button 
+          onClick={() => {
+            if (pathname === '/dashboard') {
+              window.location.reload();
+            } else {
+              router.push('/dashboard');
+            }
+          }}
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
           <svg className="w-9 h-9" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="grad-header" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -39,7 +48,7 @@ export default function Header() {
             <circle cx="60" cy="70" r="2.5" fill="#2D6A4F" opacity="0.9"/>
           </svg>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">Mise</h1>
-        </div>
+        </button>
 
         <div className="flex items-center gap-3">
           {/* Sign Out Button */}
