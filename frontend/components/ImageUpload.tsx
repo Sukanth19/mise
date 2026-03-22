@@ -104,7 +104,7 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
     <div className="w-full">
       <div
         className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-          dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+          dragActive ? 'border-primary bg-primary/5' : 'border-input hover:border-ring'
         } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -129,12 +129,12 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
               alt="Preview"
               className="max-h-64 mx-auto rounded-lg object-cover"
             />
-            <p className="text-sm text-gray-600">Click or drag to replace image</p>
+            <p className="text-sm text-muted-foreground">Click or drag to replace image</p>
           </div>
         ) : (
           <div className="space-y-2">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-12 w-12 text-muted-foreground"
               stroke="currentColor"
               fill="none"
               viewBox="0 0 48 48"
@@ -147,28 +147,28 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
                 strokeLinejoin="round"
               />
             </svg>
-            <div className="text-sm text-gray-600">
-              <span className="font-medium text-blue-600 hover:text-blue-500">
+            <div className="text-sm text-muted-foreground">
+              <span className="font-medium text-primary hover:opacity-80">
                 Click to upload
               </span>{' '}
               or drag and drop
             </div>
-            <p className="text-xs text-gray-500">JPEG, PNG, or WebP up to 5MB</p>
+            <p className="text-xs text-muted-foreground">JPEG, PNG, or WebP up to 5MB</p>
           </div>
         )}
 
         {uploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
+          <div className="absolute inset-0 flex items-center justify-center bg-background/75 rounded-lg">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-sm text-gray-600">Uploading...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-sm text-muted-foreground">Uploading...</p>
             </div>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="mt-2 text-sm text-red-600" role="alert">
+        <div className="mt-2 text-sm text-destructive" role="alert">
           {error}
         </div>
       )}

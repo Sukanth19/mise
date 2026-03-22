@@ -36,10 +36,10 @@ export default function NewRecipePage() {
 
   if (!mounted) {
     return (
-      <main className="min-h-screen bg-gray-50 p-8">
+      <main className="min-h-screen bg-background p-8">
         <div className="max-w-4xl mx-auto">
           <div className="text-center py-12">
-            <p className="text-gray-600">Loading...</p>
+            <p className="text-muted-foreground">Loading...</p>
           </div>
         </div>
       </main>
@@ -47,13 +47,13 @@ export default function NewRecipePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <button
           type="button"
           onClick={handleBack}
-          className="mb-6 flex items-center text-gray-600 hover:text-gray-900 hover:scale-105 transition-all duration-200"
+          className="mb-6 flex items-center text-muted-foreground hover:text-foreground hover:scale-105 transition-all duration-200"
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -73,8 +73,8 @@ export default function NewRecipePage() {
 
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Create New Recipe</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground">Create New Recipe</h1>
+          <p className="mt-2 text-muted-foreground">
             Add a new recipe to your collection
           </p>
         </div>

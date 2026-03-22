@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import PageTransition from '@/components/PageTransition'
+import LayoutWrapper from '@/components/LayoutWrapper'
 
 export const metadata: Metadata = {
-  title: 'Recipe Saver',
-  description: 'Save and manage your personal recipes',
+  title: 'Mise - Your Recipe Collection',
+  description: 'Organize and manage your personal recipes with Mise',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -15,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <PageTransition>{children}</PageTransition>
+        <LayoutWrapper>{children}</LayoutWrapper>
       </body>
     </html>
   )

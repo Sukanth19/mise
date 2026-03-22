@@ -56,10 +56,10 @@ export default function EditRecipePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 p-8">
+      <main className="min-h-screen bg-background p-8">
         <div className="max-w-4xl mx-auto">
           <div className="text-center py-12">
-            <p className="text-gray-600">Loading recipe...</p>
+            <p className="text-muted-foreground">Loading recipe...</p>
           </div>
         </div>
       </main>
@@ -68,14 +68,14 @@ export default function EditRecipePage() {
 
   if (error || !recipe) {
     return (
-      <main className="min-h-screen bg-gray-50 p-8">
+      <main className="min-h-screen bg-background p-8">
         <div className="max-w-4xl mx-auto">
           <div className="text-center py-12">
-            <p className="text-red-600">{error || 'Recipe not found'}</p>
+            <p className="text-destructive">{error || 'Recipe not found'}</p>
             <button
               type="button"
               onClick={() => router.push('/dashboard')}
-              className="mt-4 text-blue-600 hover:text-blue-800 hover:scale-105 transition-all duration-200"
+              className="mt-4 text-primary hover:opacity-80 hover:scale-105 transition-all duration-200"
             >
               Back to Dashboard
             </button>
@@ -86,13 +86,13 @@ export default function EditRecipePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <button
           type="button"
           onClick={handleBack}
-          className="mb-6 flex items-center text-gray-600 hover:text-gray-900 hover:scale-105 transition-all duration-200"
+          className="mb-6 flex items-center text-muted-foreground hover:text-foreground hover:scale-105 transition-all duration-200"
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -112,8 +112,8 @@ export default function EditRecipePage() {
 
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Edit Recipe</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-3xl font-bold text-foreground">Edit Recipe</h1>
+          <p className="mt-2 text-muted-foreground">
             Update your recipe details
           </p>
         </div>

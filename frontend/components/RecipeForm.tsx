@@ -126,29 +126,29 @@ export default function RecipeForm({
   return (
     <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded" role="alert">
+        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded" role="alert">
           {error}
         </div>
       )}
 
       {/* Title */}
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-          Title <span className="text-red-500">*</span>
+        <label htmlFor="title" className="block text-sm font-medium text-foreground mb-1">
+          Title <span className="text-destructive">*</span>
         </label>
         <input
           id="title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder="Enter recipe title"
         />
       </div>
 
       {/* Image Upload */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1">
           Recipe Image
         </label>
         <ImageUpload 
@@ -159,8 +159,8 @@ export default function RecipeForm({
 
       {/* Ingredients */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Ingredients <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-foreground mb-1">
+          Ingredients <span className="text-destructive">*</span>
         </label>
         <div className="space-y-2">
           {ingredients.map((ingredient, index) => (
@@ -169,14 +169,14 @@ export default function RecipeForm({
                 type="text"
                 value={ingredient}
                 onChange={(e) => handleIngredientChange(index, e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder={`Ingredient ${index + 1}`}
               />
               <button
                 type="button"
                 onClick={() => handleRemoveIngredient(index)}
                 disabled={ingredients.length === 1}
-                className="px-3 py-2 text-red-600 hover:text-red-800 hover:scale-110 disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+                className="px-3 py-2 text-destructive hover:opacity-80 hover:scale-110 disabled:text-muted-foreground disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
                 aria-label={`Remove ingredient ${index + 1}`}
               >
                 Remove
@@ -186,7 +186,7 @@ export default function RecipeForm({
           <button
             type="button"
             onClick={handleAddIngredient}
-            className="text-blue-600 hover:text-blue-800 hover:scale-105 text-sm font-medium transition-all duration-200"
+            className="text-primary hover:opacity-80 hover:scale-105 text-sm font-medium transition-all duration-200"
           >
             + Add Ingredient
           </button>
@@ -195,19 +195,19 @@ export default function RecipeForm({
 
       {/* Steps */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Steps <span className="text-red-500">*</span>
+        <label className="block text-sm font-medium text-foreground mb-1">
+          Steps <span className="text-destructive">*</span>
         </label>
         <div className="space-y-2">
           {steps.map((step, index) => (
             <div key={index} className="flex gap-2">
-              <span className="flex-shrink-0 w-8 h-10 flex items-center justify-center text-gray-500 font-medium">
+              <span className="flex-shrink-0 w-8 h-10 flex items-center justify-center text-muted-foreground font-medium">
                 {index + 1}.
               </span>
               <textarea
                 value={step}
                 onChange={(e) => handleStepChange(index, e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="flex-1 px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 placeholder={`Step ${index + 1}`}
                 rows={2}
               />
@@ -215,7 +215,7 @@ export default function RecipeForm({
                 type="button"
                 onClick={() => handleRemoveStep(index)}
                 disabled={steps.length === 1}
-                className="px-3 py-2 text-red-600 hover:text-red-800 hover:scale-110 disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+                className="px-3 py-2 text-destructive hover:opacity-80 hover:scale-110 disabled:text-muted-foreground disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
                 aria-label={`Remove step ${index + 1}`}
               >
                 Remove
@@ -225,7 +225,7 @@ export default function RecipeForm({
           <button
             type="button"
             onClick={handleAddStep}
-            className="text-blue-600 hover:text-blue-800 hover:scale-105 text-sm font-medium transition-all duration-200"
+            className="text-primary hover:opacity-80 hover:scale-105 text-sm font-medium transition-all duration-200"
           >
             + Add Step
           </button>
@@ -234,7 +234,7 @@ export default function RecipeForm({
 
       {/* Tags */}
       <div>
-        <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="tags" className="block text-sm font-medium text-foreground mb-1">
           Tags
         </label>
         <input
@@ -242,15 +242,15 @@ export default function RecipeForm({
           type="text"
           value={tags}
           onChange={(e) => setTags(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder="Enter tags separated by commas (e.g., dinner, vegetarian, quick)"
         />
-        <p className="mt-1 text-xs text-gray-500">Separate multiple tags with commas</p>
+        <p className="mt-1 text-xs text-muted-foreground">Separate multiple tags with commas</p>
       </div>
 
       {/* Reference Link */}
       <div>
-        <label htmlFor="referenceLink" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="referenceLink" className="block text-sm font-medium text-foreground mb-1">
           Reference Link
         </label>
         <input
@@ -258,7 +258,7 @@ export default function RecipeForm({
           type="url"
           value={referenceLink}
           onChange={(e) => setReferenceLink(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder="https://example.com/original-recipe"
         />
       </div>
@@ -268,7 +268,7 @@ export default function RecipeForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 hover:shadow-lg hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200"
+          className="flex-1 bg-primary text-primary-foreground py-2 px-4 rounded-md hover:opacity-90 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200"
         >
           {isSubmitting ? 'Saving...' : submitLabel}
         </button>

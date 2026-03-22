@@ -22,7 +22,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
   return (
     <div
       onClick={handleClick}
-      className="cursor-pointer bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:scale-105 hover:shadow-lg"
+      className="cursor-pointer bg-card rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:scale-105 hover:shadow-lg border border-border"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -32,7 +32,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         }
       }}
     >
-      <div className="relative w-full h-48 bg-gray-200">
+      <div className="relative w-full h-48 bg-muted">
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -40,13 +40,13 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400">
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
             No Image
           </div>
         )}
       </div>
       <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-800 truncate">
+        <h3 className="text-lg font-semibold text-foreground truncate">
           {recipe.title}
         </h3>
       </div>
