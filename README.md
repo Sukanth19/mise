@@ -1,148 +1,244 @@
-# Recipe Saver
-
-A full-stack web application for saving and managing personal recipes.
-
-## Tech Stack
-
-- **Backend**: FastAPI (Python) with SQLAlchemy ORM
-- **Frontend**: Next.js (React + TypeScript) with Tailwind CSS
-- **Database**: PostgreSQL
-- **Authentication**: JWT tokens
-- **Testing**: pytest + hypothesis (backend), Jest + fast-check (frontend)
-
-## Project Structure
+# Mise - Recipe Saver
 
 ```
-.
-├── backend/           # FastAPI backend application
-│   ├── app/          # Application code
-│   │   ├── __init__.py
-│   │   ├── main.py   # FastAPI app entry point
-│   │   ├── config.py # Configuration settings
-│   │   ├── database.py # Database connection
-│   │   └── models.py # SQLAlchemy models
-│   ├── tests/        # Backend tests
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/         # Next.js frontend application
-│   ├── app/         # Next.js app directory
-│   ├── components/  # React components
-│   ├── types/       # TypeScript type definitions
-│   ├── package.json
-│   └── .env.example
-└── database/        # Database initialization scripts
-    └── init.sql
+    __  ____              
+   /  |/  (_)_______      
+  / /|_/ / / ___/ _ \     
+ / /  / / (__  )  __/     
+/_/  /_/_/____/\___/      
+                          
+Your personal recipe collection, beautifully organized.
 ```
 
-## Setup Instructions
+A modern, full-stack web application for saving and managing your favorite recipes with a clean, intuitive interface.
+
+---
+
+## (>) Tech Stack
+
+**Backend**
+- FastAPI (Python) - High-performance async API framework
+- SQLAlchemy ORM - Elegant database interactions
+- JWT Authentication - Secure token-based auth
+- pytest + hypothesis - Property-based testing
+
+**Frontend**
+- Next.js 14 (React + TypeScript) - Modern React framework
+- Tailwind CSS - Utility-first styling
+- Framer Motion - Smooth animations
+- Jest + fast-check - Comprehensive testing
+
+**Database**
+- PostgreSQL - Robust relational database
+
+---
+
+## (~) Project Structure
+
+```
+mise/
+│
+├── backend/                 # FastAPI backend application
+│   ├── app/
+│   │   ├── main.py         # API entry point
+│   │   ├── config.py       # Environment configuration
+│   │   ├── database.py     # Database connection & session
+│   │   ├── models.py       # SQLAlchemy data models
+│   │   ├── schemas.py      # Pydantic validation schemas
+│   │   ├── routers/        # API route handlers
+│   │   └── services/       # Business logic layer
+│   ├── tests/              # Backend test suite
+│   ├── requirements.txt    # Python dependencies
+│   └── .env.example        # Environment template
+│
+├── frontend/               # Next.js frontend application
+│   ├── app/               # Next.js app router pages
+│   ├── components/        # Reusable React components
+│   ├── contexts/          # React context providers
+│   ├── lib/               # Utility functions & API client
+│   ├── types/             # TypeScript type definitions
+│   ├── __tests__/         # Frontend test suite
+│   └── .env.example       # Environment template
+│
+└── database/              # Database initialization
+    └── init.sql           # Schema creation script
+```
+
+---
+
+## (+) Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
-- Node.js 18+
-- PostgreSQL 14+
-
-### Database Setup
-
-1. Install PostgreSQL
-2. Create database and tables:
-```bash
-psql -U postgres -f database/init.sql
+```
+[x] Python 3.10 or higher
+[x] Node.js 18 or higher
+[x] PostgreSQL 14 or higher
 ```
 
-Or manually:
+### (1) Database Setup
+
+Create and initialize the database:
+
 ```bash
+# Create database
 createdb recipe_saver
+
+# Run initialization script
 psql -U postgres -d recipe_saver -f database/init.sql
 ```
 
-### Backend Setup
+### (2) Backend Setup
 
-1. Navigate to backend directory:
 ```bash
+# Navigate to backend
 cd backend
-```
 
-2. Create virtual environment:
-```bash
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
-3. Install dependencies:
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-4. Create `.env` file from example:
-```bash
+# Configure environment
 cp .env.example .env
-```
+# Edit .env with your database credentials
 
-5. Update `.env` with your database credentials and secret key
-
-6. Run the development server:
-```bash
+# Start server
 uvicorn app.main:app --reload
 ```
 
-Backend will be available at http://localhost:8000
+**Backend running at:** `http://localhost:8000`
 
-### Frontend Setup
+### (3) Frontend Setup
 
-1. Navigate to frontend directory:
 ```bash
+# Navigate to frontend
 cd frontend
-```
 
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-3. Create `.env.local` file:
-```bash
+# Configure environment
 cp .env.example .env.local
-```
 
-4. Run the development server:
-```bash
+# Start development server
 npm run dev
 ```
 
-Frontend will be available at http://localhost:3000
+**Frontend running at:** `http://localhost:3000`
 
-## Running Tests
+---
+
+## (*) Features
+
+```
+[✓] User Authentication
+    - Secure registration and login
+    - JWT token-based sessions
+    - Protected routes
+
+[✓] Recipe Management
+    - Create, edit, and delete recipes
+    - Rich text ingredients and instructions
+    - Image upload support
+    - Search by title
+
+[✓] Modern UI/UX
+    - Responsive design (mobile, tablet, desktop)
+    - Smooth page transitions
+    - Interactive animations
+    - Dark mode support
+
+[✓] Robust Testing
+    - Property-based testing
+    - Integration tests
+    - >80% code coverage
+```
+
+---
+
+## (!) Running Tests
 
 ### Backend Tests
+
 ```bash
 cd backend
-pytest
+source venv/bin/activate
+pytest                          # Run all tests
+pytest --cov=app               # With coverage report
+pytest -v                      # Verbose output
 ```
 
 ### Frontend Tests
+
 ```bash
 cd frontend
-npm test
+npm test                       # Run all tests
+npm test -- --coverage        # With coverage report
+npm test -- --watch           # Watch mode
 ```
 
-## API Documentation
+---
 
-Once the backend is running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+## (?) API Documentation
 
-## Features
+Interactive API documentation available when backend is running:
 
-- User registration and authentication
-- Create, read, update, and delete recipes
-- Upload recipe images
-- Search recipes by title
-- Responsive design for mobile, tablet, and desktop
-- Smooth UI animations
+```
+Swagger UI:  http://localhost:8000/docs
+ReDoc:       http://localhost:8000/redoc
+```
 
-## Development
+### Key Endpoints
 
-- Backend API runs on port 8000
-- Frontend runs on port 3000
-- Database runs on port 5432 (default PostgreSQL)
+```
+POST   /api/auth/register      # Create new user account
+POST   /api/auth/login         # Authenticate user
+GET    /api/recipes            # List all recipes (with search)
+POST   /api/recipes            # Create new recipe
+GET    /api/recipes/{id}       # Get recipe details
+PUT    /api/recipes/{id}       # Update recipe
+DELETE /api/recipes/{id}       # Delete recipe
+POST   /api/images/upload      # Upload recipe image
+```
+
+---
+
+## (=) Development
+
+### Port Configuration
+
+```
+Backend:   8000
+Frontend:  3000
+Database:  5432
+```
+
+### Environment Variables
+
+**Backend (.env)**
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/recipe_saver
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+```
+
+**Frontend (.env.local)**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+---
+
+## (#) License
+
+MIT License - feel free to use this project for learning or personal use.
+
+---
+
+```
+Made with <3 and lots of coffee
+```
