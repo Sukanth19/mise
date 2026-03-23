@@ -1,30 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&family=Roboto:wght@400;500;700;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Vesper Dark - Single theme */
-    --background: 240 10% 6%;
-    --foreground: 240 5% 84%;
-    --card: 240 8% 10%;
-    --card-foreground: 240 5% 84%;
-    --popover: 240 8% 10%;
-    --popover-foreground: 240 5% 84%;
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 328 86% 70%;
+    /* Borderlands Comic Theme */
+    --background: 42 25% 92%;
+    --foreground: 0 0% 5%;
+    --card: 45 30% 88%;
+    --card-foreground: 0 0% 5%;
+    --popover: 45 30% 88%;
+    --popover-foreground: 0 0% 5%;
+    --primary: 35 100% 50%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 195 100% 45%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 240 6% 15%;
-    --muted-foreground: 240 5% 64%;
-    --accent: 240 6% 12%;
-    --accent-hover: 240 6% 16%;
-    --accent-foreground: 240 5% 84%;
-    --destructive: 0 62% 50%;
+    --muted: 40 20% 75%;
+    --muted-foreground: 0 0% 25%;
+    --accent: 350 85% 55%;
+    --accent-hover: 350 85% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 20%;
-    --input: 240 6% 20%;
-    --ring: 262 83% 58%;
+    --border: 0 0% 10%;
+    --input: 0 0% 95%;
+    --ring: 35 100% 50%;
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
   }
@@ -32,12 +34,117 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0;
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  /* Comic book borders and effects */
+  .comic-border {
+    border: 4px solid hsl(var(--border));
+    box-shadow: 
+      4px 4px 0 hsl(var(--border)),
+      8px 8px 0 rgba(0, 0, 0, 0.1);
+  }
+  
+  .comic-border-thick {
+    border: 5px solid hsl(var(--border));
+    box-shadow: 
+      6px 6px 0 hsl(var(--border)),
+      10px 10px 0 rgba(0, 0, 0, 0.15);
+  }
+  
+  .comic-panel {
+    border: 5px solid hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: 
+      inset 0 0 0 2px hsl(var(--background)),
+      6px 6px 0 hsl(var(--border)),
+      10px 10px 0 rgba(0, 0, 0, 0.15);
+    position: relative;
+  }
+  
+  .comic-panel::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(135deg, 
+      rgba(255, 255, 255, 0.3) 0%, 
+      transparent 50%, 
+      rgba(0, 0, 0, 0.1) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  .comic-button {
+    border: 4px solid hsl(var(--border));
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 
+      4px 4px 0 hsl(var(--border));
+    transition: all 0.1s ease;
+    position: relative;
+  }
+  
+  .comic-button:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 
+      2px 2px 0 hsl(var(--border));
+  }
+  
+  .comic-button:active {
+    transform: translate(4px, 4px);
+    box-shadow: none;
+  }
+  
+  .comic-input {
+    border: 3px solid hsl(var(--border));
+    background: hsl(var(--input));
+    font-weight: 700;
+    box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .comic-input:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 
+      inset 2px 2px 4px rgba(0, 0, 0, 0.1),
+      0 0 0 3px hsl(var(--primary) / 0.3);
+  }
+  
+  /* Halftone dot pattern background - REMOVED for cleaner look */
+  .halftone-bg {
+    background: transparent;
+  }
+  
+  /* Comic text effects */
+  .comic-text {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  
+  .comic-heading {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .comic-label {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.875rem;
   }
 }

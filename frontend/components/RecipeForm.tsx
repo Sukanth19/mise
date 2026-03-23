@@ -124,16 +124,16 @@ export default function RecipeForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-6">
+    <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
       {error && (
-        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded" role="alert">
-          {error}
+        <div className="comic-border bg-destructive/10 border-destructive text-destructive px-6 py-4 font-bold" role="alert">
+          ⚠ {error}
         </div>
       )}
 
       {/* Title */}
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="title" className="block comic-label text-foreground mb-3">
           Title <span className="text-destructive">*</span>
         </label>
         <input
@@ -141,14 +141,14 @@ export default function RecipeForm({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full comic-input px-4 py-3 text-lg font-medium"
           placeholder="Enter recipe title"
         />
       </div>
 
       {/* Image Upload */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="block comic-label text-foreground mb-3">
           Recipe Image
         </label>
         <ImageUpload 
@@ -159,55 +159,55 @@ export default function RecipeForm({
 
       {/* Ingredients */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="block comic-label text-foreground mb-3">
           Ingredients <span className="text-destructive">*</span>
         </label>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {ingredients.map((ingredient, index) => (
-            <div key={index} className="flex gap-2">
+            <div key={index} className="flex gap-3 items-center">
               <input
                 type="text"
                 value={ingredient}
                 onChange={(e) => handleIngredientChange(index, e.target.value)}
-                className="flex-1 px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="flex-1 comic-input px-4 py-3 font-medium"
                 placeholder={`Ingredient ${index + 1}`}
               />
               <button
                 type="button"
                 onClick={() => handleRemoveIngredient(index)}
                 disabled={ingredients.length === 1}
-                className="px-3 py-2 text-destructive hover:opacity-80 hover:scale-110 disabled:text-muted-foreground disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+                className="comic-button px-4 py-3 bg-destructive text-destructive-foreground disabled:opacity-30 disabled:cursor-not-allowed font-bold"
                 aria-label={`Remove ingredient ${index + 1}`}
               >
-                Remove
+                REMOVE
               </button>
             </div>
           ))}
           <button
             type="button"
             onClick={handleAddIngredient}
-            className="text-primary hover:opacity-80 hover:scale-105 text-sm font-medium transition-all duration-200"
+            className="comic-button px-6 py-3 bg-secondary text-secondary-foreground font-bold"
           >
-            + Add Ingredient
+            + ADD INGREDIENT
           </button>
         </div>
       </div>
 
       {/* Steps */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="block comic-label text-foreground mb-3">
           Steps <span className="text-destructive">*</span>
         </label>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {steps.map((step, index) => (
-            <div key={index} className="flex gap-2">
-              <span className="flex-shrink-0 w-8 h-10 flex items-center justify-center text-muted-foreground font-medium">
-                {index + 1}.
+            <div key={index} className="flex gap-3">
+              <span className="flex-shrink-0 w-10 h-12 flex items-center justify-center text-foreground font-bold text-xl comic-border bg-card">
+                {index + 1}
               </span>
               <textarea
                 value={step}
                 onChange={(e) => handleStepChange(index, e.target.value)}
-                className="flex-1 px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                className="flex-1 comic-input px-4 py-3 font-medium resize-none"
                 placeholder={`Step ${index + 1}`}
                 rows={2}
               />
@@ -215,26 +215,26 @@ export default function RecipeForm({
                 type="button"
                 onClick={() => handleRemoveStep(index)}
                 disabled={steps.length === 1}
-                className="px-3 py-2 text-destructive hover:opacity-80 hover:scale-110 disabled:text-muted-foreground disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+                className="comic-button px-4 py-3 bg-destructive text-destructive-foreground disabled:opacity-30 disabled:cursor-not-allowed font-bold"
                 aria-label={`Remove step ${index + 1}`}
               >
-                Remove
+                REMOVE
               </button>
             </div>
           ))}
           <button
             type="button"
             onClick={handleAddStep}
-            className="text-primary hover:opacity-80 hover:scale-105 text-sm font-medium transition-all duration-200"
+            className="comic-button px-6 py-3 bg-secondary text-secondary-foreground font-bold"
           >
-            + Add Step
+            + ADD STEP
           </button>
         </div>
       </div>
 
       {/* Tags */}
       <div>
-        <label htmlFor="tags" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="tags" className="block comic-label text-foreground mb-3">
           Tags
         </label>
         <input
@@ -242,15 +242,15 @@ export default function RecipeForm({
           type="text"
           value={tags}
           onChange={(e) => setTags(e.target.value)}
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full comic-input px-4 py-3 font-medium"
           placeholder="Enter tags separated by commas (e.g., dinner, vegetarian, quick)"
         />
-        <p className="mt-1 text-xs text-muted-foreground">Separate multiple tags with commas</p>
+        <p className="mt-2 text-sm text-muted-foreground font-medium">Separate multiple tags with commas</p>
       </div>
 
       {/* Reference Link */}
       <div>
-        <label htmlFor="referenceLink" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="referenceLink" className="block comic-label text-foreground mb-3">
           Reference Link
         </label>
         <input
@@ -258,19 +258,19 @@ export default function RecipeForm({
           type="url"
           value={referenceLink}
           onChange={(e) => setReferenceLink(e.target.value)}
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full comic-input px-4 py-3 font-medium"
           placeholder="https://example.com/original-recipe"
         />
       </div>
 
       {/* Submit Button */}
-      <div className="flex gap-4 pt-4">
+      <div className="flex gap-4 pt-6">
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex-1 bg-primary text-primary-foreground py-2 px-4 rounded-md hover:opacity-90 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200"
+          className="flex-1 comic-button bg-primary text-primary-foreground py-4 px-8 text-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? 'Saving...' : submitLabel}
+          {isSubmitting ? 'SAVING...' : submitLabel.toUpperCase()}
         </button>
       </div>
     </form>

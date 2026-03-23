@@ -53,28 +53,28 @@ export default function NewRecipePage() {
         <button
           type="button"
           onClick={handleBack}
-          className="mb-6 flex items-center text-muted-foreground hover:text-foreground hover:scale-105 transition-all duration-200"
+          className="mb-8 comic-button bg-card text-foreground px-6 py-3 flex items-center gap-2"
         >
           <svg
-            className="w-5 h-5 mr-2"
+            className="w-6 h-6"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            strokeWidth={3}
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
               d="M15 19l-7-7 7-7"
             />
           </svg>
-          Back to Dashboard
+          <span className="font-bold">BACK</span>
         </button>
 
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Create New Recipe</h1>
-          <p className="mt-2 text-muted-foreground">
+        <div className="mb-10 comic-panel p-8">
+          <h1 className="text-5xl comic-heading text-foreground mb-3">Create New Recipe</h1>
+          <p className="text-lg text-muted-foreground font-medium">
             Add a new recipe to your collection
           </p>
         </div>
