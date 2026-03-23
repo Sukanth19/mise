@@ -1,6 +1,6 @@
 # Mise - Recipe Saver
 
-```
+```text
     __  ____              
    /  |/  (_)_______      
   / /|_/ / / ___/ _ \     
@@ -14,211 +14,194 @@ A modern, full-stack web application for saving and managing your favorite recip
 
 ---
 
-## (>) Tech Stack
+## Tech Stack
 
-**Backend**
+### Backend
+
 - FastAPI (Python) - High-performance async API framework
 - SQLAlchemy ORM - Elegant database interactions
 - JWT Authentication - Secure token-based auth
 - pytest + hypothesis - Property-based testing
 
-**Frontend**
+### Frontend
+
 - Next.js 14 (React + TypeScript) - Modern React framework
 - Tailwind CSS - Utility-first styling
 - Framer Motion - Smooth animations
 - Jest + fast-check - Comprehensive testing
 
-**Database**
+### Database
+
 - PostgreSQL - Robust relational database
 
 ---
 
-## (~) Project Structure
+## Project Structure
 
-```
+```text
 mise/
-│
-├── backend/                 # FastAPI backend application
+├── backend/                    # FastAPI backend
 │   ├── app/
-│   │   ├── main.py         # API entry point
-│   │   ├── config.py       # Environment configuration
-│   │   ├── database.py     # Database connection & session
-│   │   ├── models.py       # SQLAlchemy data models
-│   │   ├── schemas.py      # Pydantic validation schemas
-│   │   ├── routers/        # API route handlers
-│   │   └── services/       # Business logic layer
-│   ├── tests/              # Backend test suite
-│   ├── requirements.txt    # Python dependencies
-│   └── .env.example        # Environment template
+│   │   ├── routers/           # API endpoints
+│   │   ├── services/          # Business logic
+│   │   ├── main.py            # App entry point
+│   │   ├── models.py          # Database models
+│   │   └── schemas.py         # Request/response schemas
+│   ├── tests/                 # Backend tests
+│   └── uploads/               # Recipe images (gitignored)
 │
-├── frontend/               # Next.js frontend application
-│   ├── app/               # Next.js app router pages
-│   ├── components/        # Reusable React components
-│   ├── contexts/          # React context providers
-│   ├── lib/               # Utility functions & API client
-│   ├── types/             # TypeScript type definitions
-│   ├── __tests__/         # Frontend test suite
-│   └── .env.example       # Environment template
+├── frontend/                  # Next.js frontend
+│   ├── app/                  # Pages (App Router)
+│   ├── components/           # React components
+│   ├── contexts/             # React contexts
+│   ├── lib/                  # Utilities & API client
+│   └── __tests__/            # Frontend tests
 │
-└── database/              # Database initialization
-    └── init.sql           # Schema creation script
+├── database/                 # Database setup
+│   └── init.sql              # Schema initialization
+│
+└── docs/                     # Documentation
+    ├── API.md                # API reference
+    ├── SETUP.md              # Setup instructions
+    ├── TESTING.md            # Testing guide
+    └── CONTRIBUTING.md       # Contribution guide
 ```
 
 ---
 
-## (+) Quick Start
+## Quick Start
 
 ### Prerequisites
 
-```
-[x] Python 3.10 or higher
-[x] Node.js 18 or higher
-[x] PostgreSQL 14 or higher
-```
+- Python 3.10+
+- Node.js 18+
+- PostgreSQL 14+
 
-### (1) Database Setup
-
-Create and initialize the database:
+### 1. Database Setup
 
 ```bash
-# Create database
 createdb recipe_saver
-
-# Run initialization script
 psql -U postgres -d recipe_saver -f database/init.sql
 ```
 
-### (2) Backend Setup
+### 2. Backend Setup
 
 ```bash
-# Navigate to backend
 cd backend
-
-# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure environment
 cp .env.example .env
-# Edit .env with your database credentials
-
-# Start server
+# Edit .env with your credentials
 uvicorn app.main:app --reload
 ```
 
-**Backend running at:** `http://localhost:8000`
+Backend: http://localhost:8000
 
-### (3) Frontend Setup
+### 3. Frontend Setup
 
 ```bash
-# Navigate to frontend
 cd frontend
-
-# Install dependencies
 npm install
-
-# Configure environment
 cp .env.example .env.local
-
-# Start development server
 npm run dev
 ```
 
-**Frontend running at:** `http://localhost:3000`
+Frontend: http://localhost:3000
+
+For detailed setup instructions, see [docs/SETUP.md](docs/SETUP.md)
 
 ---
 
-## (*) Features
+## Features
 
-```
-[✓] User Authentication
-    - Secure registration and login
-    - JWT token-based sessions
-    - Protected routes
+### User Authentication
 
-[✓] Recipe Management
-    - Create, edit, and delete recipes
-    - Rich text ingredients and instructions
-    - Image upload support
-    - Search by title
+- Secure registration and login
+- JWT token-based sessions
+- Protected routes
 
-[✓] Modern UI/UX
-    - Responsive design (mobile, tablet, desktop)
-    - Smooth page transitions
-    - Interactive animations
-    - Dark mode support
+### Recipe Management
 
-[✓] Robust Testing
-    - Property-based testing
-    - Integration tests
-    - >80% code coverage
-```
+- Create, edit, and delete recipes
+- Rich text ingredients and instructions
+- Image upload support
+- Search by title
+
+### Modern UI/UX
+
+- Responsive design (mobile, tablet, desktop)
+- Smooth page transitions
+- Interactive animations
+- Dark mode support
+
+### Robust Testing
+
+- Property-based testing
+- Integration tests
+- 80%+ code coverage
 
 ---
 
-## (!) Running Tests
+## Running Tests
 
-### Backend Tests
+### Backend
 
 ```bash
 cd backend
 source venv/bin/activate
-pytest                          # Run all tests
-pytest --cov=app               # With coverage report
-pytest -v                      # Verbose output
+pytest                    # Run all tests
+pytest --cov=app         # With coverage
 ```
 
-### Frontend Tests
+### Frontend
 
 ```bash
 cd frontend
-npm test                       # Run all tests
-npm test -- --coverage        # With coverage report
-npm test -- --watch           # Watch mode
+npm test                 # Run all tests
+npm test -- --coverage  # With coverage
 ```
+
+For detailed testing information, see [docs/TESTING.md](docs/TESTING.md)
 
 ---
 
-## (?) API Documentation
+## API Documentation
 
-Interactive API documentation available when backend is running:
+Interactive documentation available when backend is running:
 
-```
-Swagger UI:  http://localhost:8000/docs
-ReDoc:       http://localhost:8000/redoc
-```
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 ### Key Endpoints
 
-```
-POST   /api/auth/register      # Create new user account
-POST   /api/auth/login         # Authenticate user
-GET    /api/recipes            # List all recipes (with search)
-POST   /api/recipes            # Create new recipe
-GET    /api/recipes/{id}       # Get recipe details
+```text
+POST   /api/auth/register      # Create account
+POST   /api/auth/login         # Authenticate
+GET    /api/recipes            # List recipes (with search)
+POST   /api/recipes            # Create recipe
+GET    /api/recipes/{id}       # Get recipe
 PUT    /api/recipes/{id}       # Update recipe
 DELETE /api/recipes/{id}       # Delete recipe
-POST   /api/images/upload      # Upload recipe image
+POST   /api/images/upload      # Upload image
 ```
+
+For detailed API documentation, see [docs/API.md](docs/API.md)
 
 ---
 
-## (=) Development
+## Development
 
-### Port Configuration
+### Ports
 
-```
-Backend:   8000
-Frontend:  3000
-Database:  5432
-```
+- Backend: 8000
+- Frontend: 3000
+- Database: 5432
 
 ### Environment Variables
 
-**Backend (.env)**
+Backend (.env):
+
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/recipe_saver
 SECRET_KEY=your-secret-key-here
@@ -226,19 +209,18 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 
-**Frontend (.env.local)**
+Frontend (.env.local):
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
 
-## (#) License
+## License
 
 MIT License - feel free to use this project for learning or personal use.
 
 ---
 
-```
-Made with <3 and lots of coffee
-```
+Made with ❤️ and lots of coffee
