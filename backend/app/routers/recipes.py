@@ -6,6 +6,7 @@ from app.schemas import RecipeCreate, RecipeUpdate, RecipeResponse, BulkDeleteRe
 from app.services.recipe_service import RecipeManager
 from app.services.search_service import SearchEngine
 from app.services.auth_service import AuthService
+from app.services.filter_service import FilterEngine
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
@@ -81,6 +82,67 @@ def bulk_delete_recipes(
             detail=str(e),
             headers={"error_code": "FORBIDDEN"}
         )
+
+
+@router.get("/filter", response_model=List[RecipeResponse])
+def filter_recipes(
+    favorites: Optional[bool] = Query(None, description="Filter by favorite status"),
+    min_rating: Optional[float] = Query(None, description="Minimum average rating threshold", ge=1, le=5),
+    tags: Optional[str] = Query(None, description="Comma-separated list of tags"),
+    dietary_labels: Optional[str] = Query(None, description="Comma-separated list of dietary labels"),
+    exclude_allergens: Optional[str] = Query(None, description="Comma-separated list of allergens to exclude"),
+    sort_by: Optional[str] = Query(None, description="Sort by field (date, rating, title)"),
+    sort_order: Optional[str] = Query("asc", description="Sort order (asc or desc)"),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """
+    Filter and sort recipes with multiple criteria.
+    
+    Query parameters:
+    - favorites: Filter by favorite status (true/false)
+    - min_rating: Minimum average rating (1-5)
+    - tags: Comma-separated tags (recipes with any of these tags)
+    - dietary_labels: Comma-separated dietary labels (vegan, vegetarian, gluten-free, etc.)
+    - exclude_allergens: Comma-separated allergens to exclude (nuts, dairy, eggs, etc.)
+    - sort_by: Sort field (date, rating, title)
+    - sort_order: Sort order (asc or desc)
+    """
+    # Parse comma-separated lists
+    tags_list = [tag.strip() for tag in tags.split(",")] if tags else None
+    dietary_labels_list = [label.strip() for label in dietary_labels.split(",")] if dietary_labels else None
+    exclude_allergens_list = [allergen.strip() for allergen in exclude_allergens.split(",")] if exclude_allergens else None
+    
+    # Validate sort_by parameter
+    if sort_by and sort_by not in ["date", "rating", "title"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid sort_by parameter. Must be one of: date, rating, title",
+            headers={"error_code": "INVALID_SORT_BY"}
+        )
+    
+    # Validate sort_order parameter
+    if sort_order and sort_order.lower() not in ["asc", "desc"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid sort_order parameter. Must be 'asc' or 'desc'",
+            headers={"error_code": "INVALID_SORT_ORDER"}
+        )
+    
+    # Apply filters and sorting
+    recipes = FilterEngine.filter_recipes(
+        db=db,
+        user_id=user_id,
+        favorites=favorites,
+        min_rating=min_rating,
+        tags=tags_list,
+        dietary_labels=dietary_labels_list,
+        exclude_allergens=exclude_allergens_list,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    
+    return [RecipeResponse.from_orm(recipe) for recipe in recipes]
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)
