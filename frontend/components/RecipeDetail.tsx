@@ -2,6 +2,7 @@
 
 import { Recipe } from '@/types';
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -28,91 +29,141 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
     : null;
 
   return (
-    <div className="max-w-4xl mx-auto bg-card rounded-lg shadow-md overflow-hidden border border-border">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="max-w-4xl mx-auto comic-panel overflow-hidden"
+    >
       {/* Image */}
       {imageUrl && (
-        <div className="w-full h-64 md:h-96 bg-muted">
-          <img
+        <div className="w-full h-64 md:h-96 bg-muted overflow-hidden">
+          <motion.img
+            initial={{ scale: 1.1 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.6 }}
             src={imageUrl}
             alt={recipe.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover recipe-image"
           />
         </div>
       )}
 
       <div className="p-6 md:p-8">
         {/* Title */}
-        <h1 className="text-3xl font-bold text-foreground mb-4">{recipe.title}</h1>
+        <motion.h1 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-3xl comic-heading text-foreground mb-4"
+        >
+          {recipe.title}
+        </motion.h1>
 
         {/* Tags */}
         {recipe.tags && recipe.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="flex flex-wrap gap-2 mb-6"
+          >
             {recipe.tags.map((tag, index) => (
-              <span
+              <motion.span
                 key={index}
-                className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 + index * 0.05 }}
+                className="px-3 py-1 comic-border bg-primary/10 text-primary text-sm font-bold uppercase"
               >
                 {tag}
-              </span>
+              </motion.span>
             ))}
-          </div>
+          </motion.div>
         )}
 
         {/* Ingredients */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-foreground mb-4">Ingredients</h2>
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="mb-8"
+        >
+          <h2 className="text-2xl comic-heading text-foreground mb-4">Ingredients</h2>
           <ul className="space-y-2">
             {recipe.ingredients.map((ingredient, index) => (
-              <li key={index} className="flex items-start">
+              <motion.li 
+                key={index} 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 + index * 0.05 }}
+                className="flex items-start"
+              >
                 <input
                   type="checkbox"
                   id={`ingredient-${index}`}
                   checked={checkedIngredients.has(index)}
                   onChange={() => toggleIngredient(index)}
-                  className="mt-1 mr-3 h-5 w-5 accent-primary rounded focus:ring-2 focus:ring-ring"
+                  className="mt-1 mr-3 h-5 w-5 accent-primary rounded focus:ring-2 focus:ring-ring cursor-pointer"
                 />
                 <label
                   htmlFor={`ingredient-${index}`}
-                  className={`flex-1 cursor-pointer ${
-                    checkedIngredients.has(index) ? 'line-through text-muted-foreground' : 'text-foreground'
+                  className={`flex-1 cursor-pointer font-bold transition-all duration-200 ${
+                    checkedIngredients.has(index) ? 'line-through text-muted-foreground opacity-60' : 'text-foreground'
                   }`}
                 >
                   {ingredient}
                 </label>
-              </li>
+              </motion.li>
             ))}
           </ul>
-        </div>
+        </motion.div>
 
         {/* Steps */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-foreground mb-4">Instructions</h2>
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="mb-8"
+        >
+          <h2 className="text-2xl comic-heading text-foreground mb-4">Instructions</h2>
           <ol className="space-y-4">
             {recipe.steps.map((step, index) => (
-              <li key={index} className="flex">
-                <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold mr-4">
+              <motion.li 
+                key={index} 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.7 + index * 0.1 }}
+                className="flex"
+              >
+                <span className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground flex items-center justify-center font-black mr-4 comic-border">
                   {index + 1}
                 </span>
-                <p className="flex-1 text-foreground pt-1">{step}</p>
-              </li>
+                <p className="flex-1 text-foreground pt-1 font-medium">{step}</p>
+              </motion.li>
             ))}
           </ol>
-        </div>
+        </motion.div>
 
         {/* Reference Link */}
         {recipe.reference_link && (
-          <div className="mt-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="mt-6"
+          >
             <a
               href={recipe.reference_link}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block px-6 py-3 bg-success text-white rounded-md hover:opacity-90 hover:shadow-lg hover:scale-105 transition-all duration-200"
+              className="inline-block comic-button px-6 py-3 bg-success text-white"
             >
-              View Original Recipe
+              VIEW ORIGINAL RECIPE
             </a>
-          </div>
+          </motion.div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

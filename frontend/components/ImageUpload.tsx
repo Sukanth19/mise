@@ -1,6 +1,7 @@
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import { apiClient } from '@/lib/api';
 import { ImageUploadResponse } from '@/types';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ImageUploadProps {
   onImageUploaded: (url: string) => void;
@@ -12,6 +13,7 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFile = (file: File): string | null => {
@@ -37,10 +39,16 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
 
     setError(null);
     setUploading(true);
+    setUploadProgress(0);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 100);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/images/upload`,
@@ -52,6 +60,9 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
           body: formData,
         }
       );
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
@@ -65,6 +76,7 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
       setError(err instanceof Error ? err.message : 'Failed to upload image');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -102,9 +114,14 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
 
   return (
     <div className="w-full">
-      <div
-        className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-          dragActive ? 'border-primary bg-primary/5' : 'border-input hover:border-ring'
+      <motion.div
+        animate={{ 
+          scale: dragActive ? 1.02 : 1,
+          borderColor: dragActive ? 'hsl(var(--primary))' : 'hsl(var(--border))'
+        }}
+        transition={{ duration: 0.2 }}
+        className={`relative comic-border p-6 text-center cursor-pointer transition-colors ${
+          dragActive ? 'bg-primary/5' : 'bg-card'
         } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -122,56 +139,108 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
           aria-label="Upload image file"
         />
 
-        {preview ? (
-          <div className="space-y-2">
-            <img
-              src={preview}
-              alt="Preview"
-              className="max-h-64 mx-auto rounded-lg object-cover"
-            />
-            <p className="text-sm text-muted-foreground">Click or drag to replace image</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <svg
-              className="mx-auto h-12 w-12 text-muted-foreground"
-              stroke="currentColor"
-              fill="none"
-              viewBox="0 0 48 48"
-              aria-hidden="true"
+        <AnimatePresence mode="wait">
+          {preview ? (
+            <motion.div 
+              key="preview"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="space-y-2"
             >
-              <path
-                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <img
+                src={preview}
+                alt="Preview"
+                className="max-h-64 mx-auto object-cover comic-border"
               />
-            </svg>
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium text-primary hover:opacity-80">
-                Click to upload
-              </span>{' '}
-              or drag and drop
-            </div>
-            <p className="text-xs text-muted-foreground">JPEG, PNG, or WebP up to 5MB</p>
-          </div>
-        )}
+              <p className="text-sm text-muted-foreground font-bold">CLICK OR DRAG TO REPLACE IMAGE</p>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="upload"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-2"
+            >
+              <svg
+                className="mx-auto h-12 w-12 text-muted-foreground"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 48 48"
+                aria-hidden="true"
+              >
+                <path
+                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <div className="text-sm text-muted-foreground font-bold">
+                <span className="text-primary">
+                  CLICK TO UPLOAD
+                </span>{' '}
+                OR DRAG AND DROP
+              </div>
+              <p className="text-xs text-muted-foreground font-bold">JPEG, PNG, OR WEBP UP TO 5MB</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {uploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/75 rounded-lg">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 flex items-center justify-center bg-background/90 comic-border"
+          >
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-sm text-muted-foreground">Uploading...</p>
+              <div className="relative w-16 h-16 mx-auto mb-4">
+                <svg className="w-16 h-16 transform -rotate-90">
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="28"
+                    stroke="hsl(var(--muted))"
+                    strokeWidth="6"
+                    fill="none"
+                  />
+                  <motion.circle
+                    cx="32"
+                    cy="32"
+                    r="28"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="6"
+                    fill="none"
+                    strokeDasharray={176}
+                    initial={{ strokeDashoffset: 176 }}
+                    animate={{ strokeDashoffset: 176 - (176 * uploadProgress) / 100 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-lg font-black text-primary">{uploadProgress}%</span>
+                </div>
+              </div>
+              <p className="text-sm text-foreground font-bold">UPLOADING...</p>
             </div>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
-      {error && (
-        <div className="mt-2 text-sm text-destructive" role="alert">
-          {error}
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mt-2 comic-border bg-destructive/10 border-destructive text-destructive px-4 py-2 font-bold animate-shake" 
+            role="alert"
+          >
+            ⚠️ {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

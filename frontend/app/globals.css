@@ -31,12 +31,57 @@
     --warning: 38 92% 50%;
   }
 
+  [data-theme='dark'] {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 35 100% 50%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 195 100% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 350 85% 55%;
+    --accent-hover: 350 85% 65%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 15%;
+    --ring: 35 100% 50%;
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+  }
+
+  * {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0s;
+  }
+
+  html.theme-transitioning * {
+    transition-duration: 0.3s;
+  }
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-weight: 500;
     letter-spacing: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
@@ -96,13 +141,13 @@
     position: relative;
   }
   
-  .comic-button:hover {
+  .comic-button:hover:not(:disabled) {
     transform: translate(2px, 2px);
     box-shadow: 
       2px 2px 0 hsl(var(--border));
   }
   
-  .comic-button:active {
+  .comic-button:active:not(:disabled) {
     transform: translate(4px, 4px);
     box-shadow: none;
   }
@@ -112,6 +157,7 @@
     background: hsl(var(--input));
     font-weight: 700;
     box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   
   .comic-input:focus {
@@ -146,5 +192,87 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-size: 0.875rem;
+  }
+
+  /* Animation utilities */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+  }
+
+  @keyframes pulse-scale {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pop-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  .animate-pulse-scale {
+    animation: pulse-scale 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+
+  .animate-pop-in {
+    animation: pop-in 0.3s ease-out;
+  }
+
+  /* Image hover effects */
+  .image-hover-scale {
+    transition: transform 0.3s ease;
+  }
+
+  .image-hover-scale:hover {
+    transform: scale(1.05);
+  }
+
+  /* Loading skeleton */
+  @keyframes skeleton-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .skeleton {
+    animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    background: hsl(var(--muted));
+  }
+
+  /* Recipe image filter */
+  .recipe-image {
+    filter: contrast(1.1) saturate(1.2);
   }
 }

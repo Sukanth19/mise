@@ -126,8 +126,8 @@ export default function RecipeForm({
   return (
     <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
       {error && (
-        <div className="comic-border bg-destructive/10 border-destructive text-destructive px-6 py-4 font-bold" role="alert">
-          ⚠ {error}
+        <div className="comic-border bg-destructive/10 border-destructive text-destructive px-6 py-4 font-bold animate-shake" role="alert">
+          ⚠️ {error}
         </div>
       )}
 

@@ -44,9 +44,9 @@ export default function AuthForm({ mode, onSubmit }: AuthFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
+    <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6">
       <div>
-        <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="username" className="block text-sm font-black text-foreground mb-2 uppercase tracking-wide">
           Username
         </label>
         <input
@@ -54,14 +54,14 @@ export default function AuthForm({ mode, onSubmit }: AuthFormProps) {
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-4 py-3 comic-input rounded-none font-bold"
           disabled={isLoading}
           required
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="password" className="block text-sm font-black text-foreground mb-2 uppercase tracking-wide">
           Password
         </label>
         <input
@@ -69,24 +69,24 @@ export default function AuthForm({ mode, onSubmit }: AuthFormProps) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-4 py-3 comic-input rounded-none font-bold"
           disabled={isLoading}
           required
         />
       </div>
 
       {error && (
-        <div className="text-destructive text-sm" role="alert">
-          {error}
+        <div className="comic-panel bg-destructive text-destructive-foreground p-4 rounded-none font-bold animate-shake" role="alert">
+          ⚠️ {error}
         </div>
       )}
 
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:opacity-90 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200"
+        className="w-full comic-button bg-primary text-primary-foreground py-4 px-6 rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? 'Loading...' : mode === 'login' ? 'Log In' : 'Register'}
+        {isLoading ? 'LOADING...' : mode === 'login' ? 'LOG IN' : 'REGISTER'}
       </button>
     </form>
   );

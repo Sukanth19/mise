@@ -2,10 +2,13 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { removeToken } from '@/lib/api';
+import { useTheme } from '@/contexts/ThemeContext';
+import { motion } from 'framer-motion';
 
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
+  const themeContext = useTheme();
 
   // Don't show header on login/register pages
   if (pathname === '/' || pathname === '/register') {
@@ -18,9 +21,10 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-50 border-b-[5px] border-border bg-background comic-border-thick">
+      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
         <button 
+          type="button"
           onClick={() => {
             if (pathname === '/dashboard') {
               window.location.reload();
@@ -28,35 +32,43 @@ export default function Header() {
               router.push('/dashboard');
             }
           }}
-          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 comic-button bg-primary text-primary-foreground px-4 py-2 rounded-none group"
         >
-          <svg className="w-9 h-9" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="grad-header" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#8B5CF6', stopOpacity: 1 }} />
-                <stop offset="100%" style={{ stopColor: '#EC4899', stopOpacity: 1 }} />
-              </linearGradient>
-            </defs>
-            <rect width="100" height="100" rx="22" fill="url(#grad-header)"/>
-            <path d="M25 50 L45 30 L48 33 L28 53 Z" fill="white" opacity="0.95"/>
-            <path d="M45 30 L48 27 L51 30 L48 33 Z" fill="white" opacity="0.8"/>
-            <rect x="20" y="55" width="60" height="4" rx="1" fill="white" opacity="0.9"/>
-            <circle cx="35" cy="68" r="3" fill="#2D6A4F" opacity="0.9"/>
-            <circle cx="42" cy="66" r="2.5" fill="#2D6A4F" opacity="0.9"/>
-            <circle cx="38" cy="72" r="2" fill="#2D6A4F" opacity="0.9"/>
-            <circle cx="55" cy="67" r="3" fill="#2D6A4F" opacity="0.9"/>
-            <circle cx="60" cy="70" r="2.5" fill="#2D6A4F" opacity="0.9"/>
-          </svg>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">Mise</h1>
+          <motion.svg 
+            className="w-10 h-10" 
+            viewBox="0 0 100 100" 
+            xmlns="http://www.w3.org/2000/svg"
+            whileHover={{ rotate: [0, -5, 5, -5, 0] }}
+            transition={{ duration: 0.5 }}
+          >
+            <rect width="100" height="100" rx="0" fill="#FF8C00" stroke="#0D0D0D" strokeWidth="4"/>
+            <path d="M25 50 L45 30 L48 33 L28 53 Z" fill="#0D0D0D" stroke="#0D0D0D" strokeWidth="2"/>
+            <path d="M45 30 L48 27 L51 30 L48 33 Z" fill="#0D0D0D" stroke="#0D0D0D" strokeWidth="2"/>
+            <rect x="20" y="55" width="60" height="5" rx="0" fill="#0D0D0D" stroke="#0D0D0D" strokeWidth="2"/>
+            <circle cx="35" cy="70" r="4" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
+            <circle cx="42" cy="68" r="3" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
+            <circle cx="55" cy="69" r="4" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
+          </motion.svg>
+          <h1 className="text-2xl comic-heading">MISE</h1>
         </button>
 
-        <div className="flex items-center gap-3">
-          {/* Sign Out Button */}
+        <div className="flex items-center gap-4">
+          {themeContext && (
+            <button
+              type="button"
+              onClick={themeContext.toggleTheme}
+              className="comic-button px-4 py-3 rounded-none bg-secondary text-secondary-foreground"
+              aria-label="Toggle theme"
+            >
+              {themeContext.theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+          )}
           <button
+            type="button"
             onClick={handleSignOut}
-            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-foreground font-medium transition-colors"
+            className="comic-button px-6 py-3 rounded-none bg-accent hover:bg-accent-hover text-accent-foreground"
           >
-            Sign Out
+            SIGN OUT
           </button>
         </div>
       </div>
