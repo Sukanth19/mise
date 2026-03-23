@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
-from app.routers import auth, recipes, images, ratings, notes
+from app.routers import auth, recipes, images, ratings, notes, collections
 from app.config import settings
 import os
 
@@ -33,6 +33,7 @@ app.include_router(recipes.router)
 app.include_router(images.router)
 app.include_router(ratings.router)
 app.include_router(notes.router)
+app.include_router(collections.router)
 
 
 @app.get("/")
