@@ -86,3 +86,62 @@ class RecipeManager:
         if not recipe:
             return False
         return recipe.user_id == user_id
+    
+    @staticmethod
+    def duplicate_recipe(db: Session, recipe_id: int, user_id: int) -> Optional[Recipe]:
+        """Duplicate a recipe with a new ID and modified title."""
+        original_recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+        if not original_recipe:
+            return None
+        
+        # Verify ownership
+        if not RecipeManager.verify_ownership(recipe_id, user_id, db):
+            return None
+        
+        # Create duplicated recipe with " (Copy)" suffix
+        duplicated_recipe = Recipe(
+            user_id=user_id,
+            title=f"{original_recipe.title} (Copy)",
+            image_url=original_recipe.image_url,
+            ingredients=original_recipe.ingredients,
+            steps=original_recipe.steps,
+            tags=original_recipe.tags,
+            reference_link=original_recipe.reference_link,
+            is_favorite=False,  # Reset favorite status
+            visibility=original_recipe.visibility,
+            servings=original_recipe.servings,
+            source_recipe_id=original_recipe.id,
+            source_author_id=original_recipe.user_id
+        )
+        
+        db.add(duplicated_recipe)
+        db.commit()
+        db.refresh(duplicated_recipe)
+        return duplicated_recipe
+    
+    @staticmethod
+    def bulk_delete_recipes(db: Session, recipe_ids: List[int], user_id: int) -> int:
+        """Delete multiple recipes atomically with ownership validation."""
+        # First, validate ownership for all recipes
+        for recipe_id in recipe_ids:
+            recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+            if not recipe:
+                # Rollback and raise error if any recipe not found
+                db.rollback()
+                raise ValueError(f"Recipe {recipe_id} not found")
+            
+            if recipe.user_id != user_id:
+                # Rollback and raise error if user doesn't own any recipe
+                db.rollback()
+                raise PermissionError(f"User does not own recipe {recipe_id}")
+        
+        # If all validations pass, delete all recipes
+        deleted_count = 0
+        for recipe_id in recipe_ids:
+            recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+            if recipe:
+                db.delete(recipe)
+                deleted_count += 1
+        
+        db.commit()
+        return deleted_count

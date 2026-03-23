@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
-from app.routers import auth, recipes, images
+from app.routers import auth, recipes, images, ratings, notes
 from app.config import settings
 import os
 
@@ -31,6 +31,8 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 app.include_router(auth.router)
 app.include_router(recipes.router)
 app.include_router(images.router)
+app.include_router(ratings.router)
+app.include_router(notes.router)
 
 
 @app.get("/")

@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
-from app.schemas import RecipeCreate, RecipeUpdate, RecipeResponse
+from app.schemas import RecipeCreate, RecipeUpdate, RecipeResponse, BulkDeleteRequest, FavoriteToggleRequest
 from app.services.recipe_service import RecipeManager
 from app.services.search_service import SearchEngine
 from app.services.auth_service import AuthService
@@ -57,6 +57,30 @@ def get_recipes(
         # Return all user recipes when no search query
         recipes = RecipeManager.get_user_recipes(db, user_id)
     return [RecipeResponse.from_orm(recipe) for recipe in recipes]
+
+
+@router.delete("/bulk")
+def bulk_delete_recipes(
+    request: BulkDeleteRequest = Body(...),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Delete multiple recipes atomically."""
+    try:
+        deleted_count = RecipeManager.bulk_delete_recipes(db, request.recipe_ids, user_id)
+        return {"deleted_count": deleted_count}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+            headers={"error_code": "RECIPE_NOT_FOUND"}
+        )
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+            headers={"error_code": "FORBIDDEN"}
+        )
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)
@@ -155,3 +179,71 @@ def delete_recipe(
         )
     
     return {"message": "Recipe deleted successfully"}
+
+
+@router.patch("/{recipe_id}/favorite")
+def toggle_favorite(
+    recipe_id: int,
+    request: FavoriteToggleRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Toggle favorite status for a recipe."""
+    recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+    
+    if not recipe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recipe not found",
+            headers={"error_code": "RECIPE_NOT_FOUND"}
+        )
+    
+    # Verify ownership
+    if recipe.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to modify this recipe",
+            headers={"error_code": "FORBIDDEN"}
+        )
+    
+    # Update favorite status
+    recipe.is_favorite = request.is_favorite
+    db.commit()
+    db.refresh(recipe)
+    
+    return {"id": recipe.id, "is_favorite": recipe.is_favorite}
+
+
+@router.post("/{recipe_id}/duplicate", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
+def duplicate_recipe(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Duplicate an existing recipe."""
+    recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+    
+    if not recipe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recipe not found",
+            headers={"error_code": "RECIPE_NOT_FOUND"}
+        )
+    
+    # Verify ownership
+    if recipe.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to duplicate this recipe",
+            headers={"error_code": "FORBIDDEN"}
+        )
+    
+    duplicated_recipe = RecipeManager.duplicate_recipe(db, recipe_id, user_id)
+    
+    if not duplicated_recipe:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to duplicate recipe"
+        )
+    
+    return RecipeResponse.from_orm(duplicated_recipe)

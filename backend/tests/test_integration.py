@@ -357,3 +357,85 @@ class TestAPIEndpointConnectivity:
             headers={"Authorization": headers["Authorization"]}
         )
         assert response.status_code == 201
+
+
+    def test_recipe_enhancement_flow(self, client):
+        """
+        Test recipe enhancement features:
+        1. Register and login
+        2. Create a recipe
+        3. Toggle favorite status
+        4. Duplicate the recipe
+        5. Bulk delete recipes
+        """
+        username = generate_unique_username()
+        password = "password123"
+        
+        # Register and login
+        client.post("/api/auth/register", json={"username": username, "password": password})
+        login_response = client.post("/api/auth/login", json={"username": username, "password": password})
+        token = login_response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # Create a recipe
+        recipe_data = {
+            "title": "Test Recipe for Enhancements",
+            "ingredients": ["ingredient 1", "ingredient 2"],
+            "steps": ["step 1", "step 2"],
+            "tags": ["test"]
+        }
+        create_response = client.post("/api/recipes", json=recipe_data, headers=headers)
+        assert create_response.status_code == 201
+        recipe_id = create_response.json()["id"]
+        
+        # Test favorite toggle
+        favorite_response = client.patch(
+            f"/api/recipes/{recipe_id}/favorite",
+            json={"is_favorite": True},
+            headers=headers
+        )
+        assert favorite_response.status_code == 200
+        assert favorite_response.json()["is_favorite"] is True
+        
+        # Verify favorite status persists
+        get_response = client.get(f"/api/recipes/{recipe_id}", headers=headers)
+        assert get_response.status_code == 200
+        
+        # Test recipe duplication
+        duplicate_response = client.post(
+            f"/api/recipes/{recipe_id}/duplicate",
+            headers=headers
+        )
+        assert duplicate_response.status_code == 201
+        duplicated_recipe = duplicate_response.json()
+        assert duplicated_recipe["id"] != recipe_id
+        assert duplicated_recipe["title"] == f"{recipe_data['title']} (Copy)"
+        assert duplicated_recipe["ingredients"] == recipe_data["ingredients"]
+        assert duplicated_recipe["steps"] == recipe_data["steps"]
+        
+        # Create another recipe for bulk delete test
+        recipe_data2 = {
+            "title": "Second Test Recipe",
+            "ingredients": ["ingredient A"],
+            "steps": ["step A"]
+        }
+        create_response2 = client.post("/api/recipes", json=recipe_data2, headers=headers)
+        recipe_id2 = create_response2.json()["id"]
+        
+        # Test bulk delete
+        import json as json_module
+        bulk_delete_response = client.request(
+            "DELETE",
+            "/api/recipes/bulk",
+            content=json_module.dumps({"recipe_ids": [recipe_id, duplicated_recipe["id"], recipe_id2]}),
+            headers={**headers, "Content-Type": "application/json"}
+        )
+        if bulk_delete_response.status_code != 200:
+            print(f"Bulk delete failed with status {bulk_delete_response.status_code}")
+            print(f"Response: {bulk_delete_response.json()}")
+        assert bulk_delete_response.status_code == 200
+        assert bulk_delete_response.json()["deleted_count"] == 3
+        
+        # Verify recipes are deleted
+        get_response = client.get(f"/api/recipes/{recipe_id}", headers=headers)
+        assert get_response.status_code == 404

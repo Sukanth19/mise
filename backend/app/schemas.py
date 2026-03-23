@@ -44,6 +44,14 @@ class RecipeUpdate(BaseModel):
     reference_link: Optional[str] = None
 
 
+class BulkDeleteRequest(BaseModel):
+    recipe_ids: List[int] = Field(..., min_length=1)
+
+
+class FavoriteToggleRequest(BaseModel):
+    is_favorite: bool
+
+
 class RecipeResponse(BaseModel):
     id: int
     user_id: int

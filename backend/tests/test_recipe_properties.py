@@ -333,3 +333,158 @@ def test_search_user_boundaries_property(db, common_word, user1_recipe_count, us
         assert recipe.user_id == user2.id, "All search results should belong to user2"
         assert recipe.id in user2_recipe_ids, "Recipe ID should be in user2's recipe list"
         assert recipe.id not in user1_recipe_ids, "Recipe ID should not be in user1's recipe list"
+
+
+# Feature: recipe-saver-enhancements, Property 13: Recipe duplication preserves content
+# Feature: recipe-saver-enhancements, Property 14: Duplicated recipe title modification
+@given(
+    title=st.text(min_size=1, max_size=50, alphabet=st.characters(min_codepoint=32, max_codepoint=126)),
+    ingredients=st.lists(st.text(min_size=1, max_size=50), min_size=1, max_size=10),
+    steps=st.lists(st.text(min_size=1, max_size=100), min_size=1, max_size=10),
+    tags=st.one_of(st.none(), st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5)),
+    reference_link=st.one_of(st.none(), st.text(min_size=10, max_size=100))
+)
+@hyp_settings(max_examples=100, deadline=timedelta(milliseconds=5000), suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_recipe_duplication_property(db, title, ingredients, steps, tags, reference_link):
+    """
+    Property 13: Recipe duplication preserves content
+    Property 14: Duplicated recipe title modification
+    
+    For any recipe, duplicating it should create a new recipe with identical 
+    ingredients, steps, tags, and reference link, but with a different ID and 
+    a modified title containing the original title plus a suffix.
+    
+    **Validates: Requirements 5.1, 5.2, 5.4**
+    """
+    from app.services.recipe_service import RecipeManager
+    from app.services.auth_service import AuthService
+    from app.schemas import RecipeCreate
+    
+    # Create a test user with unique username
+    unique_username = f"dupuser_{uuid.uuid4().hex[:8]}"
+    user = AuthService.create_user(db, unique_username, "password123")
+    
+    # Create original recipe
+    recipe_data = RecipeCreate(
+        title=title,
+        ingredients=ingredients,
+        steps=steps,
+        tags=tags,
+        reference_link=reference_link
+    )
+    original_recipe = RecipeManager.create_recipe(db, user.id, recipe_data)
+    
+    # Duplicate the recipe
+    duplicated_recipe = RecipeManager.duplicate_recipe(db, original_recipe.id, user.id)
+    
+    assert duplicated_recipe is not None, "Duplication should succeed"
+    
+    # Property 13: Content preservation
+    import json
+    assert duplicated_recipe.id != original_recipe.id, "Duplicated recipe should have a different ID"
+    assert json.loads(duplicated_recipe.ingredients) == ingredients, "Ingredients should be preserved"
+    assert json.loads(duplicated_recipe.steps) == steps, "Steps should be preserved"
+    
+    if tags is not None:
+        assert duplicated_recipe.tags is not None, "Tags should not be None when provided"
+        assert json.loads(duplicated_recipe.tags) == tags, "Tags should be preserved"
+    else:
+        assert duplicated_recipe.tags is None, "Tags should be None if not provided"
+    
+    assert duplicated_recipe.reference_link == reference_link, "Reference link should be preserved"
+    
+    # Property 14: Title modification
+    assert duplicated_recipe.title != title, "Duplicated recipe title should be modified"
+    assert title in duplicated_recipe.title, "Duplicated recipe title should contain original title"
+    assert duplicated_recipe.title == f"{title} (Copy)", "Duplicated recipe should have ' (Copy)' suffix"
+    
+    # Verify source tracking
+    assert duplicated_recipe.source_recipe_id == original_recipe.id, "Source recipe ID should be set"
+    assert duplicated_recipe.source_author_id == original_recipe.user_id, "Source author ID should be set"
+
+
+# Feature: recipe-saver-enhancements, Property 15: Bulk deletion completeness
+# Feature: recipe-saver-enhancements, Property 16: Bulk operation atomicity
+@given(
+    recipe_count=st.integers(min_value=2, max_value=5)
+)
+@hyp_settings(max_examples=100, deadline=timedelta(milliseconds=5000), suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_bulk_deletion_property(db, recipe_count):
+    """
+    Property 15: Bulk deletion completeness
+    Property 16: Bulk operation atomicity
+    
+    For any set of user-owned recipes, bulk deletion should remove all 
+    selected recipes from the database. If any recipe fails validation 
+    (e.g., not owned by user), no recipes should be modified.
+    
+    **Validates: Requirements 6.1, 6.4**
+    """
+    from app.services.recipe_service import RecipeManager
+    from app.services.auth_service import AuthService
+    from app.schemas import RecipeCreate
+    
+    # Create two test users with unique usernames
+    unique_id = uuid.uuid4().hex[:8]
+    user1 = AuthService.create_user(db, f"bulkuser1_{unique_id}", "password123")
+    user2 = AuthService.create_user(db, f"bulkuser2_{unique_id}", "password456")
+    
+    # Create recipes for user1
+    user1_recipe_ids = []
+    for i in range(recipe_count):
+        recipe_data = RecipeCreate(
+            title=f"User1 Recipe {i}",
+            ingredients=["ingredient1"],
+            steps=["step1"]
+        )
+        recipe = RecipeManager.create_recipe(db, user1.id, recipe_data)
+        user1_recipe_ids.append(recipe.id)
+    
+    # Create one recipe for user2
+    user2_recipe_data = RecipeCreate(
+        title="User2 Recipe",
+        ingredients=["ingredient2"],
+        steps=["step2"]
+    )
+    user2_recipe = RecipeManager.create_recipe(db, user2.id, user2_recipe_data)
+    
+    # Property 15: Test successful bulk deletion
+    deleted_count = RecipeManager.bulk_delete_recipes(db, user1_recipe_ids, user1.id)
+    
+    assert deleted_count == recipe_count, f"Should delete all {recipe_count} recipes"
+    
+    # Verify all recipes are deleted
+    for recipe_id in user1_recipe_ids:
+        recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+        assert recipe is None, f"Recipe {recipe_id} should be deleted"
+    
+    # Property 16: Test atomicity - attempting to delete mix of owned and unowned recipes
+    # Create new recipes for user1
+    new_user1_recipe_ids = []
+    for i in range(recipe_count):
+        recipe_data = RecipeCreate(
+            title=f"User1 New Recipe {i}",
+            ingredients=["ingredient1"],
+            steps=["step1"]
+        )
+        recipe = RecipeManager.create_recipe(db, user1.id, recipe_data)
+        new_user1_recipe_ids.append(recipe.id)
+    
+    # Try to delete user1's recipes plus user2's recipe (should fail atomically)
+    mixed_recipe_ids = new_user1_recipe_ids + [user2_recipe.id]
+    
+    try:
+        RecipeManager.bulk_delete_recipes(db, mixed_recipe_ids, user1.id)
+        assert False, "Bulk delete should fail when user doesn't own all recipes"
+    except PermissionError:
+        # Expected - operation should fail
+        pass
+    
+    # Verify NO recipes were deleted (atomicity)
+    for recipe_id in new_user1_recipe_ids:
+        recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+        assert recipe is not None, f"Recipe {recipe_id} should still exist (atomicity)"
+    
+    # Verify user2's recipe still exists
+    user2_recipe_check = RecipeManager.get_recipe_by_id(db, user2_recipe.id)
+    assert user2_recipe_check is not None, "User2's recipe should still exist"
