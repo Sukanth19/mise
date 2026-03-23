@@ -272,6 +272,10 @@ class CustomItemCreate(BaseModel):
     category: Optional[str] = Field(None, pattern="^(produce|dairy|meat|pantry|other)$")
 
 
+class ItemUpdateRequest(BaseModel):
+    is_checked: bool
+
+
 # ============================================================================
 # Nutrition Schemas
 # ============================================================================

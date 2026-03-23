@@ -1,0 +1,97 @@
+..............................................................s..F....F. [ 54%]
+..F......ss..................................................            [100%]
+=================================== FAILURES ===================================
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for MealPlanCreate
+    meal_time
+      String should match pattern '^(breakfast|lunch|dinner|snack)$' [type=string_pattern_mismatch, input_value='invalid', input_type=str]
+        For further information visit https://errors.pydantic.dev/2.12/v/string_pattern_mismatch
+/home/suks/code/projects/mise/backend/tests/test_meal_plan_service.py:65: pydantic_core._pydantic_core.ValidationError: 1 validation error for MealPlanCreate
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for MealPlanUpdate
+    meal_time
+      String should match pattern '^(breakfast|lunch|dinner|snack)$' [type=string_pattern_mismatch, input_value='invalid', input_type=str]
+        For further information visit https://errors.pydantic.dev/2.12/v/string_pattern_mismatch
+/home/suks/code/projects/mise/backend/tests/test_meal_plan_service.py:152: pydantic_core._pydantic_core.ValidationError: 1 validation error for MealPlanUpdate
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for TemplateItemCreate
+    meal_time
+      String should match pattern '^(breakfast|lunch|dinner|snack)$' [type=string_pattern_mismatch, input_value='invalid', input_type=str]
+        For further information visit https://errors.pydantic.dev/2.12/v/string_pattern_mismatch
+/home/suks/code/projects/mise/backend/tests/test_meal_plan_service.py:215: pydantic_core._pydantic_core.ValidationError: 1 validation error for TemplateItemCreate
+=============================== warnings summary ===============================
+app/config.py:4
+  /home/suks/code/projects/mise/backend/app/config.py:4: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class Settings(BaseSettings):
+
+app/database.py:10
+  /home/suks/code/projects/mise/backend/app/database.py:10: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas.py:21
+  /home/suks/code/projects/mise/backend/app/schemas.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class UserResponse(BaseModel):
+
+app/schemas.py:55
+  /home/suks/code/projects/mise/backend/app/schemas.py:55: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RecipeResponse(BaseModel):
+
+app/schemas.py:104
+  /home/suks/code/projects/mise/backend/app/schemas.py:104: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RatingResponse(BaseModel):
+
+app/schemas.py:124
+  /home/suks/code/projects/mise/backend/app/schemas.py:124: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class NoteResponse(BaseModel):
+
+app/schemas.py:153
+  /home/suks/code/projects/mise/backend/app/schemas.py:153: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CollectionResponse(BaseModel):
+
+app/schemas.py:184
+  /home/suks/code/projects/mise/backend/app/schemas.py:184: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class MealPlanResponse(BaseModel):
+
+app/schemas.py:208
+  /home/suks/code/projects/mise/backend/app/schemas.py:208: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TemplateItemResponse(BaseModel):
+
+app/schemas.py:219
+  /home/suks/code/projects/mise/backend/app/schemas.py:219: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TemplateResponse(BaseModel):
+
+app/schemas.py:242
+  /home/suks/code/projects/mise/backend/app/schemas.py:242: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ShoppingListItemResponse(BaseModel):
+
+app/schemas.py:257
+  /home/suks/code/projects/mise/backend/app/schemas.py:257: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ShoppingListResponse(BaseModel):
+
+app/schemas.py:295
+  /home/suks/code/projects/mise/backend/app/schemas.py:295: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class NutritionResponse(BaseModel):
+
+app/schemas.py:341
+  /home/suks/code/projects/mise/backend/app/schemas.py:341: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CommentResponse(BaseModel):
+
+app/schemas.py:353
+  /home/suks/code/projects/mise/backend/app/schemas.py:353: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class PublicRecipeResponse(BaseModel):
+
+app/schemas.py:373
+  /home/suks/code/projects/mise/backend/app/schemas.py:373: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class UserFollowResponse(BaseModel):
+
+tests/test_rating_endpoints.py::test_rating_boundary_value_0
+tests/test_rating_endpoints.py::test_rating_boundary_value_6
+tests/test_recipe_endpoints.py::test_create_recipe_without_title
+tests/test_recipe_endpoints.py::test_unauthorized_access
+tests/test_recipe_endpoints.py::test_unauthorized_access
+  /home/suks/code/projects/mise/backend/venv/lib/python3.14/site-packages/_pytest/python.py:166: DeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    result = testfunction(**testargs)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_meal_plan_service.py::TestMealPlannerBasics::test_create_meal_plan_invalid_meal_time
+FAILED tests/test_meal_plan_service.py::TestMealPlannerBasics::test_update_meal_plan_invalid_meal_time
+FAILED tests/test_meal_plan_service.py::TestMealPlanTemplates::test_create_template_invalid_meal_time
+3 failed, 127 passed, 3 skipped, 21 warnings in 378.16s (0:06:18)
