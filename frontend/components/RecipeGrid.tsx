@@ -6,9 +6,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface RecipeGridProps {
   recipes: Recipe[];
+  selectionMode?: boolean;
+  selectedRecipeIds?: Set<number>;
+  onToggleSelection?: (recipeId: number) => void;
 }
 
-export default function RecipeGrid({ recipes }: RecipeGridProps) {
+export default function RecipeGrid({ 
+  recipes, 
+  selectionMode = false,
+  selectedRecipeIds = new Set(),
+  onToggleSelection
+}: RecipeGridProps) {
   if (recipes.length === 0) {
     return (
       <motion.div 
@@ -27,7 +35,14 @@ export default function RecipeGrid({ recipes }: RecipeGridProps) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       <AnimatePresence mode="popLayout">
         {recipes.map((recipe, index) => (
-          <RecipeCard key={recipe.id} recipe={recipe} index={index} />
+          <RecipeCard 
+            key={recipe.id} 
+            recipe={recipe} 
+            index={index}
+            selectionMode={selectionMode}
+            isSelected={selectedRecipeIds.has(recipe.id)}
+            onToggleSelection={onToggleSelection}
+          />
         ))}
       </AnimatePresence>
     </div>

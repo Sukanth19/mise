@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, getToken } from '@/lib/api';
-import { Recipe } from '@/types';
+import { Recipe, Collection } from '@/types';
 import RecipeGrid from '@/components/RecipeGrid';
 import SearchBar from '@/components/SearchBar';
 import FilterPanel, { FilterOptions } from '@/components/FilterPanel';
+import AddToCollectionModal from '@/components/AddToCollectionModal';
+import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
+import { Trash2, FolderPlus, X } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -17,6 +20,14 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterOptions>({});
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  
+  // Bulk operations state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedRecipeIds, setSelectedRecipeIds] = useState<Set<number>>(new Set());
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [showAddToCollectionModal, setShowAddToCollectionModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -27,6 +38,7 @@ export default function DashboardPage() {
     }
 
     fetchRecipes();
+    fetchCollections();
   }, [router]);
 
   const fetchRecipes = async (search?: string, filterOptions?: FilterOptions) => {
@@ -112,6 +124,73 @@ export default function DashboardPage() {
     router.push('/recipes/new');
   };
 
+  const fetchCollections = async () => {
+    try {
+      const data = await apiClient<{ collections: Collection[] }>('/api/collections');
+      setCollections(data.collections);
+    } catch (err) {
+      console.error('Failed to fetch collections:', err);
+    }
+  };
+
+  const handleToggleSelection = (recipeId: number) => {
+    setSelectedRecipeIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(recipeId)) {
+        newSet.delete(recipeId);
+      } else {
+        newSet.add(recipeId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedRecipeIds.size === filteredRecipes.length) {
+      setSelectedRecipeIds(new Set());
+    } else {
+      setSelectedRecipeIds(new Set(filteredRecipes.map(r => r.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await apiClient('/api/recipes/bulk', {
+        method: 'DELETE',
+        body: JSON.stringify({ recipe_ids: Array.from(selectedRecipeIds) }),
+      });
+      setShowDeleteModal(false);
+      setSelectedRecipeIds(new Set());
+      setSelectionMode(false);
+      await fetchRecipes();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete recipes');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkAddToCollections = async (collectionIds: number[]) => {
+    try {
+      // Add selected recipes to each collection
+      await Promise.all(
+        collectionIds.map(collectionId =>
+          apiClient(`/api/collections/${collectionId}/recipes`, {
+            method: 'POST',
+            body: JSON.stringify({ recipe_ids: Array.from(selectedRecipeIds) }),
+          })
+        )
+      );
+      setShowAddToCollectionModal(false);
+      setSelectedRecipeIds(new Set());
+      setSelectionMode(false);
+      alert('Recipes added to collections successfully!');
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to add to collections');
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-background halftone-bg p-8">
@@ -130,14 +209,66 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <h1 className="text-4xl comic-heading text-foreground mb-4 md:mb-0">MY RECIPES</h1>
-          <button
-            type="button"
-            onClick={handleCreateRecipe}
-            className="comic-button px-8 py-4 bg-primary text-primary-foreground rounded-none"
-          >
-            CREATE RECIPE
-          </button>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectionMode(!selectionMode);
+                setSelectedRecipeIds(new Set());
+              }}
+              className={`comic-button px-6 py-4 rounded-none ${
+                selectionMode 
+                  ? 'bg-secondary text-secondary-foreground' 
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {selectionMode ? 'CANCEL SELECT' : 'SELECT RECIPES'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCreateRecipe}
+              className="comic-button px-8 py-4 bg-primary text-primary-foreground rounded-none"
+            >
+              CREATE RECIPE
+            </button>
+          </div>
         </div>
+
+        {/* Bulk Actions Toolbar */}
+        {selectionMode && selectedRecipeIds.size > 0 && (
+          <div className="mb-6 comic-panel p-4 bg-primary/10 border-primary flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="font-black text-foreground uppercase">
+                {selectedRecipeIds.size} RECIPE{selectedRecipeIds.size !== 1 ? 'S' : ''} SELECTED
+              </span>
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="text-sm font-bold text-primary hover:underline uppercase"
+              >
+                {selectedRecipeIds.size === filteredRecipes.length ? 'DESELECT ALL' : 'SELECT ALL'}
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAddToCollectionModal(true)}
+                className="comic-button px-4 py-2 bg-secondary text-secondary-foreground flex items-center gap-2"
+              >
+                <FolderPlus size={18} strokeWidth={2.5} />
+                ADD TO COLLECTION
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="comic-button px-4 py-2 bg-destructive text-destructive-foreground flex items-center gap-2"
+              >
+                <Trash2 size={18} strokeWidth={2.5} />
+                DELETE
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Search Bar */}
         <div className="mb-8">
@@ -193,8 +324,31 @@ export default function DashboardPage() {
 
         {/* Recipe Grid */}
         {!loading && filteredRecipes && filteredRecipes.length > 0 && (
-          <RecipeGrid recipes={filteredRecipes} />
+          <RecipeGrid 
+            recipes={filteredRecipes}
+            selectionMode={selectionMode}
+            selectedRecipeIds={selectedRecipeIds}
+            onToggleSelection={handleToggleSelection}
+          />
         )}
+
+        {/* Add to Collection Modal */}
+        <AddToCollectionModal
+          isOpen={showAddToCollectionModal}
+          onClose={() => setShowAddToCollectionModal(false)}
+          onSubmit={handleBulkAddToCollections}
+          collections={collections}
+        />
+
+        {/* Delete Confirmation Modal */}
+        <DeleteConfirmationModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleBulkDelete}
+          title={`${selectedRecipeIds.size} recipe${selectedRecipeIds.size !== 1 ? 's' : ''}`}
+          isDeleting={isDeleting}
+          itemType="recipe"
+        />
       </div>
     </main>
   );

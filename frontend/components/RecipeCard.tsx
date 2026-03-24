@@ -4,17 +4,38 @@ import { Recipe } from '@/types';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import RatingStars from './RatingStars';
+import { Check } from 'lucide-react';
 
 interface RecipeCardProps {
   recipe: Recipe;
   index?: number;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (recipeId: number) => void;
 }
 
-export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
+export default function RecipeCard({ 
+  recipe, 
+  index = 0,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelection
+}: RecipeCardProps) {
   const router = useRouter();
 
   const handleClick = () => {
-    router.push(`/recipes/${recipe.id}`);
+    if (selectionMode && onToggleSelection) {
+      onToggleSelection(recipe.id);
+    } else {
+      router.push(`/recipes/${recipe.id}`);
+    }
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleSelection) {
+      onToggleSelection(recipe.id);
+    }
   };
 
   // Construct full image URL
@@ -34,7 +55,9 @@ export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={handleClick}
-      className="cursor-pointer comic-panel rounded-none overflow-hidden transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none group"
+      className={`cursor-pointer comic-panel rounded-none overflow-hidden transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none group ${
+        isSelected ? 'ring-4 ring-primary' : ''
+      }`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -45,6 +68,18 @@ export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
       }}
     >
       <div className="relative w-full h-48 bg-muted border-b-4 border-border overflow-hidden">
+        {selectionMode && (
+          <div 
+            className="absolute top-2 left-2 z-10"
+            onClick={handleCheckboxClick}
+          >
+            <div className={`w-8 h-8 comic-border flex items-center justify-center cursor-pointer ${
+              isSelected ? 'bg-primary text-primary-foreground' : 'bg-background'
+            }`}>
+              {isSelected && <Check size={20} strokeWidth={3} />}
+            </div>
+          </div>
+        )}
         {imageUrl ? (
           <img
             src={imageUrl}

@@ -1,17 +1,34 @@
 import React, { useState, FormEvent } from 'react';
 import ImageUpload from './ImageUpload';
 import { RecipeCreate, RecipeUpdate } from '@/types';
+import NutritionForm, { NutritionData } from './NutritionForm';
+import DietaryLabelsSelector from './DietaryLabelsSelector';
+import AllergenWarnings from './AllergenWarnings';
 
 interface RecipeFormProps {
   initialData?: RecipeUpdate & { id?: number };
   onSubmit: (data: RecipeCreate | RecipeUpdate) => Promise<void>;
   submitLabel?: string;
+  showNutritionSection?: boolean;
+  onNutritionSubmit?: (recipeId: number, data: NutritionData) => Promise<void>;
+  onDietaryLabelsSubmit?: (recipeId: number, labels: string[]) => Promise<void>;
+  onAllergensSubmit?: (recipeId: number, allergens: string[]) => Promise<void>;
+  initialNutrition?: NutritionData;
+  initialDietaryLabels?: string[];
+  initialAllergens?: string[];
 }
 
 export default function RecipeForm({ 
   initialData, 
   onSubmit, 
-  submitLabel = 'Save Recipe' 
+  submitLabel = 'Save Recipe',
+  showNutritionSection = false,
+  onNutritionSubmit,
+  onDietaryLabelsSubmit,
+  onAllergensSubmit,
+  initialNutrition,
+  initialDietaryLabels = [],
+  initialAllergens = [],
 }: RecipeFormProps) {
   const [title, setTitle] = useState(initialData?.title || '');
   const [imageUrl, setImageUrl] = useState(initialData?.image_url || '');
@@ -29,6 +46,10 @@ export default function RecipeForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Nutrition state
+  const [dietaryLabels, setDietaryLabels] = useState<string[]>(initialDietaryLabels);
+  const [allergens, setAllergens] = useState<string[]>(initialAllergens);
 
   const handleAddIngredient = () => {
     setIngredients([...ingredients, '']);
@@ -262,6 +283,53 @@ export default function RecipeForm({
           placeholder="https://example.com/original-recipe"
         />
       </div>
+
+      {/* Nutrition Section (only shown when editing existing recipe) */}
+      {showNutritionSection && initialData?.id && (
+        <div className="space-y-8 pt-8 border-t-4 border-border">
+          <h2 className="text-2xl comic-heading text-foreground">NUTRITION INFORMATION</h2>
+          
+          {/* Nutrition Facts Form */}
+          <div>
+            <h3 className="text-lg font-bold uppercase text-foreground mb-4">Nutrition Facts</h3>
+            <NutritionForm
+              initialData={initialNutrition}
+              onSubmit={async (data) => {
+                if (onNutritionSubmit && initialData.id) {
+                  await onNutritionSubmit(initialData.id, data);
+                }
+              }}
+            />
+          </div>
+
+          {/* Dietary Labels */}
+          <div>
+            <DietaryLabelsSelector
+              selectedLabels={dietaryLabels}
+              onChange={async (labels) => {
+                setDietaryLabels(labels);
+                if (onDietaryLabelsSubmit && initialData.id) {
+                  await onDietaryLabelsSubmit(initialData.id, labels);
+                }
+              }}
+            />
+          </div>
+
+          {/* Allergen Warnings */}
+          <div>
+            <AllergenWarnings
+              selectedAllergens={allergens}
+              onChange={async (allergens) => {
+                setAllergens(allergens);
+                if (onAllergensSubmit && initialData.id) {
+                  await onAllergensSubmit(initialData.id, allergens);
+                }
+              }}
+              displayMode="selector"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Submit Button */}
       <div className="flex gap-4 pt-6">

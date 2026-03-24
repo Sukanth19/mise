@@ -1,11 +1,15 @@
 'use client';
 
-import { Recipe } from '@/types';
+import { Recipe, Collection, NutritionFacts } from '@/types';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import RatingStars from './RatingStars';
+import AddToCollectionModal from './AddToCollectionModal';
+import NutritionDisplay from './NutritionDisplay';
+import AllergenWarnings from './AllergenWarnings';
 import { apiClient } from '@/lib/api';
 import PrintView from './PrintView';
+import { FolderPlus } from 'lucide-react';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -15,9 +19,21 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [userRating, setUserRating] = useState<number>(0);
   const [isLoadingRating, setIsLoadingRating] = useState(true);
+  const [showAddToCollectionModal, setShowAddToCollectionModal] = useState(false);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  
+  // Nutrition state
+  const [nutritionFacts, setNutritionFacts] = useState<NutritionFacts | null>(null);
+  const [perServingNutrition, setPerServingNutrition] = useState<NutritionFacts | null>(null);
+  const [servings, setServings] = useState<number>(1);
+  const [dietaryLabels, setDietaryLabels] = useState<string[]>([]);
+  const [allergens, setAllergens] = useState<string[]>([]);
+  const [isLoadingNutrition, setIsLoadingNutrition] = useState(true);
 
   useEffect(() => {
     fetchUserRating();
+    fetchCollections();
+    fetchNutritionData();
   }, [recipe.id]);
 
   const fetchUserRating = async () => {
@@ -30,6 +46,68 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       setUserRating(0);
     } finally {
       setIsLoadingRating(false);
+    }
+  };
+
+  const fetchCollections = async () => {
+    try {
+      const data = await apiClient<{ collections: Collection[] }>('/api/collections');
+      setCollections(data.collections);
+    } catch (err) {
+      console.error('Failed to fetch collections:', err);
+    }
+  };
+
+  const fetchNutritionData = async () => {
+    try {
+      setIsLoadingNutrition(true);
+      
+      // Fetch nutrition facts
+      const nutritionResponse = await apiClient<{ 
+        nutrition_facts: NutritionFacts | null;
+        per_serving: NutritionFacts | null;
+      }>(`/api/recipes/${recipe.id}/nutrition`);
+      
+      setNutritionFacts(nutritionResponse.nutrition_facts);
+      setPerServingNutrition(nutritionResponse.per_serving);
+      
+      // Get servings from recipe (assuming it's added to Recipe type)
+      // For now, default to 1 if not available
+      setServings((recipe as any).servings || 1);
+      
+      // Fetch dietary labels (assuming endpoint returns them)
+      try {
+        const recipeWithLabels = await apiClient<any>(`/api/recipes/${recipe.id}`);
+        setDietaryLabels(recipeWithLabels.dietary_labels || []);
+        setAllergens(recipeWithLabels.allergens || []);
+      } catch (err) {
+        // Labels might not be available
+        setDietaryLabels([]);
+        setAllergens([]);
+      }
+    } catch (err) {
+      // Nutrition data might not exist yet
+      setNutritionFacts(null);
+      setPerServingNutrition(null);
+    } finally {
+      setIsLoadingNutrition(false);
+    }
+  };
+
+  const handleAddToCollections = async (collectionIds: number[]) => {
+    try {
+      // Add recipe to each selected collection
+      await Promise.all(
+        collectionIds.map(collectionId =>
+          apiClient(`/api/collections/${collectionId}/recipes`, {
+            method: 'POST',
+            body: JSON.stringify({ recipe_ids: [recipe.id] }),
+          })
+        )
+      );
+      alert('Recipe added to collections successfully!');
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to add to collections');
     }
   };
 
@@ -147,6 +225,42 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
           </div>
         </motion.div>
 
+        {/* Allergen Warnings - Prominent Display */}
+        {!isLoadingNutrition && allergens.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.38 }}
+            className="mb-6"
+          >
+            <AllergenWarnings
+              selectedAllergens={allergens}
+              displayMode="display"
+            />
+          </motion.div>
+        )}
+
+        {/* Dietary Labels */}
+        {!isLoadingNutrition && dietaryLabels.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.39 }}
+            className="mb-6"
+          >
+            <div className="flex flex-wrap gap-2">
+              {dietaryLabels.map((label) => (
+                <span
+                  key={label}
+                  className="px-3 py-1 comic-border bg-secondary/20 text-secondary-foreground text-sm font-bold uppercase"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* Ingredients */}
         <motion.div 
           initial={{ opacity: 0 }}
@@ -210,6 +324,23 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
           </ol>
         </motion.div>
 
+        {/* Nutrition Display */}
+        {!isLoadingNutrition && (nutritionFacts || perServingNutrition) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.75 }}
+            className="mb-8"
+          >
+            <NutritionDisplay
+              nutritionFacts={nutritionFacts}
+              perServing={perServingNutrition}
+              servings={servings}
+              showPerServing={true}
+            />
+          </motion.div>
+        )}
+
         {/* Reference Link */}
         {recipe.reference_link && (
           <motion.div 
@@ -234,7 +365,7 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.85 }}
-          className="mt-6"
+          className="mt-6 flex gap-4"
         >
           <button
             type="button"
@@ -244,9 +375,27 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
           >
             🖨️ PRINT RECIPE
           </button>
+          <button
+            type="button"
+            onClick={() => setShowAddToCollectionModal(true)}
+            className="comic-button px-6 py-3 bg-secondary text-secondary-foreground flex items-center gap-2"
+            aria-label="Add to collection"
+          >
+            <FolderPlus size={20} strokeWidth={2.5} />
+            ADD TO COLLECTION
+          </button>
         </motion.div>
       </div>
     </motion.div>
+
+    {/* Add to Collection Modal */}
+    <AddToCollectionModal
+      isOpen={showAddToCollectionModal}
+      onClose={() => setShowAddToCollectionModal(false)}
+      onSubmit={handleAddToCollections}
+      collections={collections}
+      recipeTitle={recipe.title}
+    />
     </>
   );
 }
