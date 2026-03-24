@@ -1,0 +1,4 @@
+
+> recipe-saver-frontend@0.1.0 test
+> jest --passWithNoTests --no-coverage
+

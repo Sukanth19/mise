@@ -275,3 +275,16 @@ export interface UserFollowingResponse {
   following: User[];
   count: number;
 }
+
+export interface Note {
+  id: number;
+  recipe_id: number;
+  user_id: number;
+  note_text: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteCreate {
+  note_text: string;
+}

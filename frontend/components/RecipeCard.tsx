@@ -4,7 +4,9 @@ import { Recipe } from '@/types';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import RatingStars from './RatingStars';
-import { Check } from 'lucide-react';
+import { Check, Star, Eye, EyeOff, Link } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { apiClient } from '@/lib/api';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -12,6 +14,7 @@ interface RecipeCardProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: (recipeId: number) => void;
+  onFavoriteToggle?: (recipeId: number, isFavorite: boolean) => void;
 }
 
 export default function RecipeCard({ 
@@ -19,9 +22,47 @@ export default function RecipeCard({
   index = 0,
   selectionMode = false,
   isSelected = false,
-  onToggleSelection
+  onToggleSelection,
+  onFavoriteToggle
 }: RecipeCardProps) {
   const router = useRouter();
+  const [isFavorite, setIsFavorite] = useState((recipe as any).is_favorite || false);
+  const [averageRating, setAverageRating] = useState(0);
+  const [isLoadingRating, setIsLoadingRating] = useState(true);
+
+  useEffect(() => {
+    // Fetch average rating for the recipe
+    fetchAverageRating();
+  }, [recipe.id]);
+
+  const fetchAverageRating = async () => {
+    try {
+      setIsLoadingRating(true);
+      // This would need a backend endpoint to get average rating
+      // For now, we'll just set it to 0
+      setAverageRating(0);
+    } catch (err) {
+      setAverageRating(0);
+    } finally {
+      setIsLoadingRating(false);
+    }
+  };
+
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await apiClient(`/api/recipes/${recipe.id}/favorite`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_favorite: !isFavorite }),
+      });
+      setIsFavorite(!isFavorite);
+      if (onFavoriteToggle) {
+        onFavoriteToggle(recipe.id, !isFavorite);
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+    }
+  };
 
   const handleClick = () => {
     if (selectionMode && onToggleSelection) {
@@ -80,6 +121,40 @@ export default function RecipeCard({
             </div>
           </div>
         )}
+        
+        {/* Favorite Star */}
+        {!selectionMode && (
+          <button
+            type="button"
+            onClick={handleFavoriteClick}
+            className="absolute top-2 right-2 z-10 w-10 h-10 comic-border bg-background/90 hover:bg-background flex items-center justify-center transition-colors"
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Star
+              size={20}
+              strokeWidth={2.5}
+              className={isFavorite ? 'fill-warning text-warning' : 'text-muted-foreground'}
+            />
+          </button>
+        )}
+
+        {/* Visibility Indicator */}
+        {recipe.visibility && recipe.visibility !== 'private' && (
+          <div className="absolute top-2 left-2 z-10 px-2 py-1 comic-border bg-background/90 flex items-center gap-1">
+            {recipe.visibility === 'public' ? (
+              <>
+                <Eye size={14} strokeWidth={2.5} className="text-success" />
+                <span className="text-xs font-bold text-success uppercase">Public</span>
+              </>
+            ) : (
+              <>
+                <Link size={14} strokeWidth={2.5} className="text-muted-foreground" />
+                <span className="text-xs font-bold text-muted-foreground uppercase">Unlisted</span>
+              </>
+            )}
+          </div>
+        )}
+
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -97,8 +172,20 @@ export default function RecipeCard({
           {recipe.title}
         </h3>
         <div className="flex items-center gap-2">
-          <RatingStars value={0} readOnly size="sm" />
-          <span className="text-xs text-muted-foreground">(No ratings yet)</span>
+          {isLoadingRating ? (
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="w-4 h-4 bg-muted animate-pulse rounded" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <RatingStars value={averageRating} readOnly size="sm" />
+              <span className="text-xs text-muted-foreground">
+                {averageRating > 0 ? `(${averageRating.toFixed(1)})` : '(No ratings yet)'}
+              </span>
+            </>
+          )}
         </div>
       </div>
     </motion.div>

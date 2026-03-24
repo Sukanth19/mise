@@ -1,26 +1,32 @@
 'use client';
 
-import { Recipe, Collection, NutritionFacts } from '@/types';
+import { Recipe, Collection, NutritionFacts, Note } from '@/types';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import RatingStars from './RatingStars';
 import AddToCollectionModal from './AddToCollectionModal';
 import NutritionDisplay from './NutritionDisplay';
 import AllergenWarnings from './AllergenWarnings';
+import RecipeNotes from './RecipeNotes';
+import ShareButtons from './ShareButtons';
+import QRCodeDisplay from './QRCodeDisplay';
 import { apiClient } from '@/lib/api';
 import PrintView from './PrintView';
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, Star, Copy } from 'lucide-react';
 
 interface RecipeDetailProps {
   recipe: Recipe;
 }
 
 export default function RecipeDetail({ recipe }: RecipeDetailProps) {
+  const router = useRouter();
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [userRating, setUserRating] = useState<number>(0);
   const [isLoadingRating, setIsLoadingRating] = useState(true);
   const [showAddToCollectionModal, setShowAddToCollectionModal] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [isFavorite, setIsFavorite] = useState((recipe as any).is_favorite || false);
   
   // Nutrition state
   const [nutritionFacts, setNutritionFacts] = useState<NutritionFacts | null>(null);
@@ -30,10 +36,15 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const [allergens, setAllergens] = useState<string[]>([]);
   const [isLoadingNutrition, setIsLoadingNutrition] = useState(true);
 
+  // Notes state
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(true);
+
   useEffect(() => {
     fetchUserRating();
     fetchCollections();
     fetchNutritionData();
+    fetchNotes();
   }, [recipe.id]);
 
   const fetchUserRating = async () => {
@@ -94,6 +105,19 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
     }
   };
 
+  const fetchNotes = async () => {
+    try {
+      setIsLoadingNotes(true);
+      const response = await apiClient<{ notes: Note[] }>(`/api/recipes/${recipe.id}/notes`);
+      setNotes(response.notes);
+    } catch (err) {
+      // Notes might not exist yet or endpoint might not be available
+      setNotes([]);
+    } finally {
+      setIsLoadingNotes(false);
+    }
+  };
+
   const handleAddToCollections = async (collectionIds: number[]) => {
     try {
       // Add recipe to each selected collection
@@ -123,6 +147,30 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
       alert(err instanceof Error ? err.message : 'Failed to save rating');
       // Revert on error
       fetchUserRating();
+    }
+  };
+
+  const handleFavoriteToggle = async () => {
+    try {
+      await apiClient(`/api/recipes/${recipe.id}/favorite`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_favorite: !isFavorite }),
+      });
+      setIsFavorite(!isFavorite);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to toggle favorite');
+    }
+  };
+
+  const handleDuplicate = async () => {
+    try {
+      const duplicatedRecipe = await apiClient<Recipe>(`/api/recipes/${recipe.id}/duplicate`, {
+        method: 'POST',
+      });
+      alert('Recipe duplicated successfully!');
+      router.push(`/recipes/${duplicatedRecipe.id}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to duplicate recipe');
     }
   };
 
@@ -203,6 +251,44 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
             ))}
           </motion.div>
         )}
+
+        {/* Action Buttons Row */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.32 }}
+          className="flex flex-wrap gap-3 mb-6"
+        >
+          {/* Favorite Button */}
+          <button
+            type="button"
+            onClick={handleFavoriteToggle}
+            className={`comic-button px-4 py-2 flex items-center gap-2 ${
+              isFavorite 
+                ? 'bg-warning text-warning-foreground' 
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Star
+              size={18}
+              strokeWidth={2.5}
+              className={isFavorite ? 'fill-current' : ''}
+            />
+            {isFavorite ? 'FAVORITED' : 'FAVORITE'}
+          </button>
+
+          {/* Duplicate Button */}
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            className="comic-button px-4 py-2 bg-secondary text-secondary-foreground flex items-center gap-2"
+            aria-label="Duplicate recipe"
+          >
+            <Copy size={18} strokeWidth={2.5} />
+            DUPLICATE
+          </button>
+        </motion.div>
 
         {/* Rating */}
         <motion.div
@@ -338,6 +424,27 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
               servings={servings}
               showPerServing={true}
             />
+          </motion.div>
+        )}
+
+        {/* Recipe Notes */}
+        {!isLoadingNotes && (
+          <RecipeNotes recipeId={recipe.id} initialNotes={notes} />
+        )}
+
+        {/* Social Sharing - Only show if recipe is public */}
+        {recipe.visibility === 'public' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.78 }}
+            className="mb-8 p-6 comic-border bg-card"
+          >
+            <h2 className="text-xl comic-heading text-foreground mb-4">Share This Recipe</h2>
+            <div className="space-y-6">
+              <ShareButtons recipeId={recipe.id} />
+              <QRCodeDisplay recipeId={recipe.id} />
+            </div>
           </motion.div>
         )}
 

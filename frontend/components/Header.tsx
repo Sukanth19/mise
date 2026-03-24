@@ -21,7 +21,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b-[5px] border-border bg-background comic-border-thick">
-      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+      <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
         <button 
           type="button"
           onClick={() => {
@@ -50,6 +50,54 @@ export default function Header() {
           </motion.svg>
           <h1 className="text-2xl comic-heading">MISE</h1>
         </button>
+
+        {/* Navigation Links */}
+        <nav className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.push('/collections')}
+            className={`comic-button px-4 py-2 text-sm ${
+              pathname.startsWith('/collections')
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+          >
+            COLLECTIONS
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/meal-planner')}
+            className={`comic-button px-4 py-2 text-sm ${
+              pathname.startsWith('/meal-planner')
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+          >
+            MEAL PLANNER
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/shopping-lists')}
+            className={`comic-button px-4 py-2 text-sm ${
+              pathname.startsWith('/shopping-lists')
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+          >
+            SHOPPING
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/discover')}
+            className={`comic-button px-4 py-2 text-sm ${
+              pathname.startsWith('/discover')
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+          >
+            DISCOVER
+          </button>
+        </nav>
 
         <div className="flex items-center gap-4">
           <ThemeToggle />
