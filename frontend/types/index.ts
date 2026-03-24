@@ -226,3 +226,51 @@ export interface NutritionSummaryResponse {
   weekly_total: NutritionFacts;
   missing_nutrition_count: number;
 }
+
+// Social Features Types
+export interface PublicRecipe extends Recipe {
+  author: User;
+  likes_count: number;
+  comments_count: number;
+  visibility: 'private' | 'public' | 'unlisted';
+}
+
+export interface Comment {
+  id: number;
+  recipe_id: number;
+  user_id: number;
+  comment_text: string;
+  created_at: string;
+  author: User;
+}
+
+export interface CommentCreate {
+  comment_text: string;
+}
+
+export interface ShareMetadata {
+  title: string;
+  description: string;
+  image_url?: string;
+  url: string;
+}
+
+export interface FollowResponse {
+  following: boolean;
+  followers_count: number;
+}
+
+export interface LikeResponse {
+  liked: boolean;
+  likes_count: number;
+}
+
+export interface UserFollowersResponse {
+  followers: User[];
+  count: number;
+}
+
+export interface UserFollowingResponse {
+  following: User[];
+  count: number;
+}
