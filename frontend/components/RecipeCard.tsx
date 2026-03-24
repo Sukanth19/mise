@@ -3,6 +3,7 @@
 import { Recipe } from '@/types';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import RatingStars from './RatingStars';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -57,9 +58,13 @@ export default function RecipeCard({ recipe, index = 0 }: RecipeCardProps) {
         )}
       </div>
       <div className="p-4 bg-card">
-        <h3 className="text-lg font-black text-foreground truncate uppercase tracking-wide">
+        <h3 className="text-lg font-black text-foreground truncate uppercase tracking-wide mb-2">
           {recipe.title}
         </h3>
+        <div className="flex items-center gap-2">
+          <RatingStars value={0} readOnly size="sm" />
+          <span className="text-xs text-muted-foreground">(No ratings yet)</span>
+        </div>
       </div>
     </motion.div>
   );

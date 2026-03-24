@@ -1,8 +1,11 @@
 'use client';
 
 import { Recipe } from '@/types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import RatingStars from './RatingStars';
+import { apiClient } from '@/lib/api';
+import PrintView from './PrintView';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -10,6 +13,40 @@ interface RecipeDetailProps {
 
 export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
+  const [userRating, setUserRating] = useState<number>(0);
+  const [isLoadingRating, setIsLoadingRating] = useState(true);
+
+  useEffect(() => {
+    fetchUserRating();
+  }, [recipe.id]);
+
+  const fetchUserRating = async () => {
+    try {
+      setIsLoadingRating(true);
+      const response = await apiClient<{ rating: number }>(`/api/recipes/${recipe.id}/rating`);
+      setUserRating(response.rating);
+    } catch (err) {
+      // If 404, user hasn't rated yet - that's fine
+      setUserRating(0);
+    } finally {
+      setIsLoadingRating(false);
+    }
+  };
+
+  const handleRatingChange = async (newRating: number) => {
+    try {
+      const method = userRating === 0 ? 'POST' : 'PUT';
+      await apiClient(`/api/recipes/${recipe.id}/rating`, {
+        method,
+        body: JSON.stringify({ rating: newRating }),
+      });
+      setUserRating(newRating);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save rating');
+      // Revert on error
+      fetchUserRating();
+    }
+  };
 
   const toggleIngredient = (index: number) => {
     setCheckedIngredients((prev) => {
@@ -29,12 +66,19 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
     : null;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="max-w-4xl mx-auto comic-panel overflow-hidden"
-    >
+    <>
+      {/* Print View Component */}
+      <div className="hidden print:block">
+        <PrintView recipe={recipe} />
+      </div>
+
+      {/* Regular View */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="max-w-4xl mx-auto comic-panel overflow-hidden print:hidden"
+      >
       {/* Image */}
       {imageUrl && (
         <div className="w-full h-64 md:h-96 bg-muted overflow-hidden">
@@ -81,6 +125,27 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
             ))}
           </motion.div>
         )}
+
+        {/* Rating */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.35 }}
+          className="mb-6"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-muted-foreground uppercase">Your Rating:</span>
+            {isLoadingRating ? (
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="w-6 h-6 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            ) : (
+              <RatingStars value={userRating} onChange={handleRatingChange} size="md" />
+            )}
+          </div>
+        </motion.div>
 
         {/* Ingredients */}
         <motion.div 
@@ -163,7 +228,25 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
             </a>
           </motion.div>
         )}
+
+        {/* Print Button */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.85 }}
+          className="mt-6"
+        >
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="comic-button px-6 py-3 bg-primary text-primary-foreground"
+            aria-label="Print recipe"
+          >
+            🖨️ PRINT RECIPE
+          </button>
+        </motion.div>
       </div>
     </motion.div>
+    </>
   );
 }

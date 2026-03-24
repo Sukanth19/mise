@@ -1,6 +1,16 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import RecipeDetail from './RecipeDetail';
 import { Recipe } from '@/types';
+
+// Use manual mock for RatingStars
+jest.mock('./RatingStars');
+
+// Mock apiClient
+jest.mock('@/lib/api', () => ({
+  apiClient: jest.fn(),
+}));
+
+const { apiClient } = require('@/lib/api');
 
 describe('RecipeDetail Unit Tests', () => {
   const completeRecipe: Recipe = {
@@ -15,6 +25,12 @@ describe('RecipeDetail Unit Tests', () => {
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Mock the rating API call to return 404 (no rating yet)
+    apiClient.mockRejectedValue(new Error('Not found'));
+  });
 
   test('renders complete recipe with all fields', () => {
     const { container } = render(<RecipeDetail recipe={completeRecipe} />);

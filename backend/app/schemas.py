@@ -338,6 +338,10 @@ class NutritionSummaryResponse(BaseModel):
 # Social Schemas
 # ============================================================================
 
+class VisibilityUpdate(BaseModel):
+    visibility: str = Field(..., pattern="^(private|public|unlisted)$")
+
+
 class CommentCreate(BaseModel):
     comment_text: str = Field(..., min_length=1)
 
@@ -389,3 +393,11 @@ class ShareMetadataResponse(BaseModel):
     description: str
     image_url: Optional[str]
     url: str
+
+
+# ============================================================================
+# URL Import Schema
+# ============================================================================
+
+class URLImportRequest(BaseModel):
+    url: str = Field(..., min_length=1, description="URL of the recipe to import")

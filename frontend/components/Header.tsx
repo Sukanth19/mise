@@ -2,13 +2,12 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { removeToken } from '@/lib/api';
-import { useTheme } from '@/contexts/ThemeContext';
 import { motion } from 'framer-motion';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const themeContext = useTheme();
 
   // Don't show header on login/register pages
   if (pathname === '/' || pathname === '/register') {
@@ -53,16 +52,7 @@ export default function Header() {
         </button>
 
         <div className="flex items-center gap-4">
-          {themeContext && (
-            <button
-              type="button"
-              onClick={themeContext.toggleTheme}
-              className="comic-button px-4 py-3 rounded-none bg-secondary text-secondary-foreground"
-              aria-label="Toggle theme"
-            >
-              {themeContext.theme === 'dark' ? '☀️' : '🌙'}
-            </button>
-          )}
+          <ThemeToggle />
           <button
             type="button"
             onClick={handleSignOut}

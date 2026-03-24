@@ -6,6 +6,7 @@ import { apiClient, getToken } from '@/lib/api';
 import { Recipe } from '@/types';
 import RecipeGrid from '@/components/RecipeGrid';
 import SearchBar from '@/components/SearchBar';
+import FilterPanel, { FilterOptions } from '@/components/FilterPanel';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<FilterOptions>({});
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   useEffect(() => {
     // Check authentication
@@ -26,14 +29,68 @@ export default function DashboardPage() {
     fetchRecipes();
   }, [router]);
 
-  const fetchRecipes = async (search?: string) => {
+  const fetchRecipes = async (search?: string, filterOptions?: FilterOptions) => {
     try {
       setLoading(true);
       setError(null);
-      const endpoint = search ? `/api/recipes?search=${encodeURIComponent(search)}` : '/api/recipes';
+      
+      // Build query parameters
+      const params = new URLSearchParams();
+      
+      // Add search if provided
+      if (search) {
+        params.append('search', search);
+      }
+      
+      // Add filter parameters if provided
+      if (filterOptions) {
+        if (filterOptions.favorites !== undefined) {
+          params.append('favorites', String(filterOptions.favorites));
+        }
+        if (filterOptions.minRating !== undefined) {
+          params.append('min_rating', String(filterOptions.minRating));
+        }
+        if (filterOptions.tags && filterOptions.tags.length > 0) {
+          params.append('tags', filterOptions.tags.join(','));
+        }
+        if (filterOptions.dietaryLabels && filterOptions.dietaryLabels.length > 0) {
+          params.append('dietary_labels', filterOptions.dietaryLabels.join(','));
+        }
+        if (filterOptions.excludeAllergens && filterOptions.excludeAllergens.length > 0) {
+          params.append('exclude_allergens', filterOptions.excludeAllergens.join(','));
+        }
+        if (filterOptions.sortBy) {
+          params.append('sort_by', filterOptions.sortBy);
+        }
+        if (filterOptions.sortOrder) {
+          params.append('sort_order', filterOptions.sortOrder);
+        }
+      }
+      
+      // Determine endpoint based on whether filters are applied
+      const hasFilters = filterOptions && Object.keys(filterOptions).some(key => {
+        const value = filterOptions[key as keyof FilterOptions];
+        return value !== undefined && (Array.isArray(value) ? value.length > 0 : true);
+      });
+      
+      const endpoint = hasFilters 
+        ? `/api/recipes/filter?${params.toString()}`
+        : search 
+          ? `/api/recipes?search=${encodeURIComponent(search)}`
+          : '/api/recipes';
+      
       const data = await apiClient<Recipe[]>(endpoint);
       setRecipes(data);
       setFilteredRecipes(data);
+      
+      // Extract unique tags from all recipes for the filter panel
+      const tags = new Set<string>();
+      data.forEach(recipe => {
+        if (recipe.tags) {
+          recipe.tags.forEach(tag => tags.add(tag));
+        }
+      });
+      setAvailableTags(Array.from(tags).sort());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch recipes');
     } finally {
@@ -43,7 +100,12 @@ export default function DashboardPage() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    fetchRecipes(query.trim() === '' ? undefined : query);
+    fetchRecipes(query.trim() === '' ? undefined : query, filters);
+  };
+
+  const handleFilterChange = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    fetchRecipes(searchQuery.trim() === '' ? undefined : searchQuery, newFilters);
   };
 
   const handleCreateRecipe = () => {
@@ -81,6 +143,9 @@ export default function DashboardPage() {
         <div className="mb-8">
           <SearchBar onSearch={handleSearch} value={searchQuery} />
         </div>
+
+        {/* Filter Panel */}
+        <FilterPanel onFilterChange={handleFilterChange} availableTags={availableTags} />
 
         {/* Error Message */}
         {error && (

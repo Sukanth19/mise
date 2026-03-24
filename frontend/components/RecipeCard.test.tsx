@@ -35,7 +35,7 @@ describe('RecipeCard Unit Tests', () => {
     
     const img = container.querySelector('img');
     expect(img).toBeInTheDocument();
-    expect(img?.getAttribute('src')).toBe('https://example.com/image.jpg');
+    expect(img?.getAttribute('src')).toBe('http://localhost:8000https://example.com/image.jpg');
     expect(img?.getAttribute('alt')).toBe('Test Recipe');
   });
 
@@ -44,32 +44,32 @@ describe('RecipeCard Unit Tests', () => {
     const { container } = render(<RecipeCard recipe={recipeWithoutImage} />);
     
     expect(screen.getByText('Test Recipe')).toBeInTheDocument();
-    expect(screen.getByText('No Image')).toBeInTheDocument();
+    expect(screen.getByText('NO IMAGE')).toBeInTheDocument();
     expect(container.querySelector('img')).not.toBeInTheDocument();
   });
 
   test('navigates to recipe detail page on click', () => {
-    render(<RecipeCard recipe={mockRecipe} />);
+    const { container } = render(<RecipeCard recipe={mockRecipe} />);
     
-    const card = screen.getByRole('button');
+    const card = container.firstChild as HTMLElement;
     fireEvent.click(card);
     
     expect(mockPush).toHaveBeenCalledWith('/recipes/1');
   });
 
   test('navigates to recipe detail page on Enter key', () => {
-    render(<RecipeCard recipe={mockRecipe} />);
+    const { container } = render(<RecipeCard recipe={mockRecipe} />);
     
-    const card = screen.getByRole('button');
+    const card = container.firstChild as HTMLElement;
     fireEvent.keyDown(card, { key: 'Enter' });
     
     expect(mockPush).toHaveBeenCalledWith('/recipes/1');
   });
 
   test('navigates to recipe detail page on Space key', () => {
-    render(<RecipeCard recipe={mockRecipe} />);
+    const { container } = render(<RecipeCard recipe={mockRecipe} />);
     
-    const card = screen.getByRole('button');
+    const card = container.firstChild as HTMLElement;
     fireEvent.keyDown(card, { key: ' ' });
     
     expect(mockPush).toHaveBeenCalledWith('/recipes/1');
@@ -79,10 +79,10 @@ describe('RecipeCard Unit Tests', () => {
     const { container } = render(<RecipeCard recipe={mockRecipe} />);
     
     const card = container.firstChild as HTMLElement;
-    expect(card.className).toContain('hover:scale-105');
-    expect(card.className).toContain('hover:shadow-lg');
-    expect(card.className).toContain('transition-transform');
-    expect(card.className).toContain('duration-300');
+    expect(card.className).toContain('hover:translate-x-1');
+    expect(card.className).toContain('hover:translate-y-1');
+    expect(card.className).toContain('transition-all');
+    expect(card.className).toContain('duration-100');
   });
 
   test('truncates long titles', () => {

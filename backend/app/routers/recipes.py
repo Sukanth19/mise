@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Body, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
-from app.schemas import RecipeCreate, RecipeUpdate, RecipeResponse, BulkDeleteRequest, FavoriteToggleRequest
+from app.schemas import RecipeCreate, RecipeUpdate, RecipeResponse, BulkDeleteRequest, FavoriteToggleRequest, URLImportRequest, ShareMetadataResponse
 from app.services.recipe_service import RecipeManager
 from app.services.search_service import SearchEngine
 from app.services.auth_service import AuthService
 from app.services.filter_service import FilterEngine
+from app.services.sharing_service import SharingService
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
@@ -309,3 +310,86 @@ def duplicate_recipe(
         )
     
     return RecipeResponse.from_orm(duplicated_recipe)
+
+
+
+@router.post("/import-url", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
+def import_recipe_from_url(
+    request: URLImportRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """
+    Import a recipe from a URL by parsing the webpage content.
+    Requirements: 34.1, 34.2, 34.3, 34.4
+    """
+    recipe = SharingService.import_recipe_from_url(db, request.url, user_id)
+    
+    if not recipe:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to import recipe from URL. The URL may be invalid or the page does not contain parseable recipe data.",
+            headers={"error_code": "IMPORT_FAILED"}
+        )
+    
+    return RecipeResponse.from_orm(recipe)
+
+
+@router.get("/{recipe_id}/qrcode")
+def get_recipe_qr_code(
+    recipe_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a QR code for a recipe.
+    Returns PNG image bytes.
+    Requirements: 36.1, 36.2, 36.3
+    """
+    # Check if recipe exists
+    recipe = RecipeManager.get_recipe_by_id(db, recipe_id)
+    
+    if not recipe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recipe not found",
+            headers={"error_code": "RECIPE_NOT_FOUND"}
+        )
+    
+    # Generate recipe URL (use public URL if recipe is public/unlisted)
+    # For now, use a placeholder base URL - in production this would come from config
+    base_url = "http://localhost:3000"
+    if recipe.visibility in ['public', 'unlisted']:
+        recipe_url = f"{base_url}/recipes/public/{recipe_id}"
+    else:
+        recipe_url = f"{base_url}/recipes/{recipe_id}"
+    
+    # Generate QR code
+    qr_code_bytes = SharingService.generate_qr_code(recipe_url)
+    
+    # Return as PNG image
+    return Response(content=qr_code_bytes, media_type="image/png")
+
+
+@router.get("/{recipe_id}/share-metadata", response_model=ShareMetadataResponse)
+def get_recipe_share_metadata(
+    recipe_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get social media share metadata for a recipe.
+    Returns metadata formatted for Open Graph and Twitter Cards.
+    Requirements: 35.1, 35.2
+    """
+    # Use placeholder base URL - in production this would come from config
+    base_url = "http://localhost:3000"
+    
+    metadata = SharingService.get_share_metadata(db, recipe_id, base_url)
+    
+    if not metadata:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recipe not found",
+            headers={"error_code": "RECIPE_NOT_FOUND"}
+        )
+    
+    return metadata

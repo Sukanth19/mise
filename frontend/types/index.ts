@@ -52,3 +52,16 @@ export interface RecipeUpdate {
 export interface ImageUploadResponse {
   url: string;
 }
+
+export interface Rating {
+  id: number;
+  recipe_id: number;
+  user_id: number;
+  rating: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RatingCreate {
+  rating: number;
+}

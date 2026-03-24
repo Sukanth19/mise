@@ -275,4 +275,59 @@
   .recipe-image {
     filter: contrast(1.1) saturate(1.2);
   }
+
+  /* Print styles */
+  @media print {
+    /* Hide navigation, buttons, and decorative elements */
+    nav,
+    header,
+    footer,
+    .comic-button,
+    button,
+    [role="navigation"] {
+      display: none !important;
+    }
+
+    /* Remove shadows and borders for cleaner print */
+    .comic-panel,
+    .comic-border {
+      box-shadow: none !important;
+      border: 1px solid #000 !important;
+    }
+
+    /* Optimize layout for print */
+    body {
+      background: white !important;
+      color: black !important;
+    }
+
+    /* Ensure images fit on page */
+    img {
+      max-height: 300px !important;
+      page-break-inside: avoid;
+    }
+
+    /* Prevent page breaks inside sections */
+    h1, h2, h3 {
+      page-break-after: avoid;
+    }
+
+    ul, ol {
+      page-break-inside: avoid;
+    }
+
+    /* Readable font sizes */
+    body {
+      font-size: 12pt;
+      line-height: 1.5;
+    }
+
+    h1 {
+      font-size: 24pt;
+    }
+
+    h2 {
+      font-size: 18pt;
+    }
+  }
 }
