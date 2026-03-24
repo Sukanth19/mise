@@ -6,13 +6,14 @@ import DietaryLabelsSelector from './DietaryLabelsSelector';
 import AllergenWarnings from './AllergenWarnings';
 
 interface RecipeFormProps {
-  initialData?: RecipeUpdate & { id?: number };
+  initialData?: RecipeUpdate & { id?: number; visibility?: string };
   onSubmit: (data: RecipeCreate | RecipeUpdate) => Promise<void>;
   submitLabel?: string;
   showNutritionSection?: boolean;
   onNutritionSubmit?: (recipeId: number, data: NutritionData) => Promise<void>;
   onDietaryLabelsSubmit?: (recipeId: number, labels: string[]) => Promise<void>;
   onAllergensSubmit?: (recipeId: number, allergens: string[]) => Promise<void>;
+  onVisibilityChange?: (recipeId: number, visibility: string) => Promise<void>;
   initialNutrition?: NutritionData;
   initialDietaryLabels?: string[];
   initialAllergens?: string[];
@@ -26,6 +27,7 @@ export default function RecipeForm({
   onNutritionSubmit,
   onDietaryLabelsSubmit,
   onAllergensSubmit,
+  onVisibilityChange,
   initialNutrition,
   initialDietaryLabels = [],
   initialAllergens = [],
@@ -44,12 +46,26 @@ export default function RecipeForm({
   const [referenceLink, setReferenceLink] = useState(
     initialData?.reference_link || ''
   );
+  const [visibility, setVisibility] = useState<string>(
+    initialData?.visibility || 'private'
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Nutrition state
   const [dietaryLabels, setDietaryLabels] = useState<string[]>(initialDietaryLabels);
   const [allergens, setAllergens] = useState<string[]>(initialAllergens);
+
+  const handleVisibilityChange = async (newVisibility: string) => {
+    setVisibility(newVisibility);
+    if (onVisibilityChange && initialData?.id) {
+      try {
+        await onVisibilityChange(initialData.id, newVisibility);
+      } catch (err) {
+        console.error('Failed to update visibility:', err);
+      }
+    }
+  };
 
   const handleAddIngredient = () => {
     setIngredients([...ingredients, '']);
@@ -282,6 +298,59 @@ export default function RecipeForm({
           className="w-full comic-input px-4 py-3 font-medium"
           placeholder="https://example.com/original-recipe"
         />
+      </div>
+
+      {/* Visibility Controls */}
+      <div>
+        <label className="block comic-label text-foreground mb-3">
+          Visibility
+        </label>
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 p-4 comic-border bg-card cursor-pointer hover:bg-accent/10 transition-colors">
+            <input
+              type="radio"
+              name="visibility"
+              value="private"
+              checked={visibility === 'private'}
+              onChange={(e) => handleVisibilityChange(e.target.value)}
+              className="w-5 h-5"
+            />
+            <div>
+              <div className="font-bold text-foreground">🔒 Private</div>
+              <div className="text-sm text-muted-foreground">Only you can see this recipe</div>
+            </div>
+          </label>
+          
+          <label className="flex items-center gap-3 p-4 comic-border bg-card cursor-pointer hover:bg-accent/10 transition-colors">
+            <input
+              type="radio"
+              name="visibility"
+              value="unlisted"
+              checked={visibility === 'unlisted'}
+              onChange={(e) => handleVisibilityChange(e.target.value)}
+              className="w-5 h-5"
+            />
+            <div>
+              <div className="font-bold text-foreground">🔗 Unlisted</div>
+              <div className="text-sm text-muted-foreground">Anyone with the link can see this recipe</div>
+            </div>
+          </label>
+          
+          <label className="flex items-center gap-3 p-4 comic-border bg-card cursor-pointer hover:bg-accent/10 transition-colors">
+            <input
+              type="radio"
+              name="visibility"
+              value="public"
+              checked={visibility === 'public'}
+              onChange={(e) => handleVisibilityChange(e.target.value)}
+              className="w-5 h-5"
+            />
+            <div>
+              <div className="font-bold text-foreground">🌍 Public</div>
+              <div className="text-sm text-muted-foreground">Everyone can discover this recipe</div>
+            </div>
+          </label>
+        </div>
       </div>
 
       {/* Nutrition Section (only shown when editing existing recipe) */}

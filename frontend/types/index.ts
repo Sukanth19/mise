@@ -12,6 +12,7 @@ export interface Recipe {
   steps: string[];
   tags?: string[];
   reference_link?: string;
+  visibility?: 'private' | 'public' | 'unlisted';
   created_at: string;
   updated_at: string;
 }

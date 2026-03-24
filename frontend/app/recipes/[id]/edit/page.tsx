@@ -50,6 +50,14 @@ export default function EditRecipePage() {
     router.push(`/recipes/${updatedRecipe.id}`);
   };
 
+  const handleVisibilityChange = async (recipeId: number, visibility: string) => {
+    await apiClient(`/api/recipes/${recipeId}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ visibility }),
+      requiresAuth: true,
+    });
+  };
+
   const handleBack = () => {
     router.push(`/recipes/${recipeId}`);
   };
@@ -122,7 +130,8 @@ export default function EditRecipePage() {
         <RecipeForm 
           initialData={recipe}
           onSubmit={handleSubmit} 
-          submitLabel="Update Recipe" 
+          submitLabel="Update Recipe"
+          onVisibilityChange={handleVisibilityChange}
         />
       </div>
     </main>
