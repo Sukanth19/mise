@@ -39,7 +39,8 @@ export default function DashboardPage() {
 
     fetchRecipes();
     fetchCollections();
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchRecipes = async (search?: string, filterOptions?: FilterOptions) => {
     try {
