@@ -82,17 +82,18 @@ def apply_migration(migration_file: Path, db_type: str):
     # Split by semicolons and execute each statement
     statements = [s.strip() for s in sql.split(';') if s.strip()]
     
-    with engine.connect() as conn:
-        for statement in statements:
-            # Skip comments
-            if statement.startswith('--'):
-                continue
-            try:
+    # Execute each statement in its own transaction for SQLite compatibility
+    for statement in statements:
+        # Skip comments
+        if statement.startswith('--'):
+            continue
+        try:
+            with engine.connect() as conn:
                 conn.execute(text(statement))
-            except Exception as e:
-                print(f"Error executing statement: {statement[:100]}...")
-                raise e
-        conn.commit()
+                conn.commit()
+        except Exception as e:
+            print(f"Error executing statement: {statement[:100]}...")
+            raise e
     
     # Mark as applied
     mark_migration_applied(migration_name)

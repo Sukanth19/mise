@@ -6,6 +6,17 @@
 - Node.js 18+
 - PostgreSQL 14+
 
+## New Dependencies
+
+The Recipe Saver Enhancements add several new Python libraries:
+
+- **icalendar** - For meal plan calendar export
+- **beautifulsoup4** - For recipe URL import
+- **qrcode** - For recipe QR code generation
+- **hypothesis** - For property-based testing
+
+These are included in `backend/requirements.txt` and will be installed automatically.
+
 ## Quick Setup
 
 ### 1. Database Setup
@@ -17,6 +28,42 @@ createdb recipe_saver
 # Initialize schema
 psql -U postgres -d recipe_saver -f database/init.sql
 ```
+
+**Database Migrations:**
+
+The enhancements add many new tables and columns. If you have an existing database, run the migration scripts:
+
+```bash
+# Run all migrations in order
+psql -U postgres -d recipe_saver -f database/migrations/001_add_recipe_extensions.sql
+psql -U postgres -d recipe_saver -f database/migrations/002_add_ratings.sql
+psql -U postgres -d recipe_saver -f database/migrations/003_add_notes.sql
+psql -U postgres -d recipe_saver -f database/migrations/004_add_collections.sql
+psql -U postgres -d recipe_saver -f database/migrations/005_add_meal_plans.sql
+psql -U postgres -d recipe_saver -f database/migrations/006_add_shopping_lists.sql
+psql -U postgres -d recipe_saver -f database/migrations/007_add_nutrition.sql
+psql -U postgres -d recipe_saver -f database/migrations/008_add_social.sql
+```
+
+**New Tables:**
+- `recipe_ratings` - 5-star recipe ratings
+- `recipe_notes` - Personal recipe notes
+- `collections` - Recipe collections/folders
+- `collection_recipes` - Many-to-many recipe-collection relationships
+- `meal_plans` - Calendar-based meal planning
+- `meal_plan_templates` - Reusable meal plan templates
+- `meal_plan_template_items` - Template items
+- `shopping_lists` - Shopping lists
+- `shopping_list_items` - Shopping list items
+- `nutrition_facts` - Recipe nutrition information
+- `dietary_labels` - Dietary labels (vegan, gluten-free, etc.)
+- `allergen_warnings` - Allergen warnings
+- `user_follows` - User following relationships
+- `recipe_likes` - Recipe likes
+- `recipe_comments` - Recipe comments
+
+**Extended Tables:**
+- `recipes` - Added `is_favorite`, `visibility`, `servings`, `source_recipe_id`, `source_author_id` columns
 
 ### 2. Backend Setup
 
@@ -32,9 +79,29 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your database credentials:
-# DATABASE_URL=postgresql://user:password@localhost:5432/recipe_saver
-# SECRET_KEY=your-secret-key-here
+# Edit .env with your database credentials
+```
+
+**Environment Variables:**
+
+Edit `backend/.env` with the following settings:
+
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/recipe_saver
+
+# Authentication
+SECRET_KEY=your-secret-key-here-use-a-long-random-string
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# File Upload
+UPLOAD_DIR=uploads
+MAX_UPLOAD_SIZE=5242880  # 5MB in bytes
+
+# Application
+DEBUG=True
+CORS_ORIGINS=http://localhost:3000
 
 # Start server
 uvicorn app.main:app --reload
@@ -53,7 +120,19 @@ npm install
 
 # Configure environment
 cp .env.example .env.local
-# Default settings should work if backend is on port 8000
+```
+
+**Environment Variables:**
+
+Edit `frontend/.env.local` with the following settings:
+
+```env
+# API Configuration
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# Feature Flags (optional)
+NEXT_PUBLIC_ENABLE_SOCIAL=true
+NEXT_PUBLIC_ENABLE_MEAL_PLANNING=true
 
 # Start development server
 npm run dev
