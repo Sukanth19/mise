@@ -1,29 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Body, Response
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, or_, func, desc, asc
 from typing import List, Optional
-from app.database import mongodb
-from app.schemas import RecipeCreate, RecipeUpdate, RecipeResponse, BulkDeleteRequest, FavoriteToggleRequest, URLImportRequest, ShareMetadataResponse
-from app.services.recipe_service import RecipeManager
-from app.services.search_service import SearchEngine
-from app.services.auth_service import AuthService
-from app.services.filter_service import FilterEngine
-from app.services.sharing_service import SharingService
-from app.repositories.recipe_repository import RecipeRepository
-from app.repositories.user_repository import UserRepository
-from app.repositories.recipe_like_repository import RecipeLikeRepository
-from app.repositories.recipe_comment_repository import RecipeCommentRepository
-from app.repositories.user_follow_repository import UserFollowRepository
-from app.utils.objectid_utils import validate_objectid
+from app.database import get_db
+from app.schemas import RecipeCreate, RecipeUpdate, RecipeResponse, BulkDeleteRequest, FavoriteToggleRequest
+from app.models import Recipe, User, RecipeRating, DietaryLabel, AllergenWarning
+from jose import jwt, JWTError
+from app.config import settings
+import json
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
-async def get_mongodb() -> AsyncIOMotorDatabase:
-    """Get MongoDB database instance."""
-    return await mongodb.get_database()
-
-
-async def get_current_user_id(authorization: str = Header(...)) -> str:
+def get_current_user_id(authorization: str = Header(...)) -> int:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -33,85 +22,127 @@ async def get_current_user_id(authorization: str = Header(...)) -> str:
         )
     
     token = authorization.replace("Bearer ", "")
-    user_id = AuthService.verify_token(token)
     
-    if user_id is None:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"error_code": "INVALID_TOKEN"}
+            )
+        return int(user_id)
+    except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"error_code": "INVALID_TOKEN"}
         )
-    
-    return user_id
+
+
+def recipe_to_response(recipe: Recipe) -> RecipeResponse:
+    """Convert Recipe model to RecipeResponse schema."""
+    return RecipeResponse(
+        id=str(recipe.id),
+        user_id=str(recipe.user_id),
+        title=recipe.title,
+        image_url=recipe.image_url,
+        ingredients=json.loads(recipe.ingredients) if recipe.ingredients else [],
+        steps=json.loads(recipe.steps) if recipe.steps else [],
+        tags=json.loads(recipe.tags) if recipe.tags else [],
+        reference_link=recipe.reference_link,
+        created_at=recipe.created_at,
+        updated_at=recipe.updated_at,
+        is_favorite=recipe.is_favorite or False,
+        visibility=recipe.visibility or "private",
+        servings=recipe.servings or 1,
+        source_recipe_id=str(recipe.source_recipe_id) if recipe.source_recipe_id else None,
+        source_author_id=str(recipe.source_author_id) if recipe.source_author_id else None
+    )
 
 
 @router.post("", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
-async def create_recipe(
+def create_recipe(
     recipe_data: RecipeCreate,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Create a new recipe for the authenticated user."""
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
+    recipe = Recipe(
+        user_id=user_id,
+        title=recipe_data.title,
+        image_url=recipe_data.image_url,
+        ingredients=json.dumps(recipe_data.ingredients),
+        steps=json.dumps(recipe_data.steps),
+        tags=json.dumps(recipe_data.tags) if recipe_data.tags else None,
+        reference_link=recipe_data.reference_link,
+        is_favorite=recipe_data.is_favorite if hasattr(recipe_data, 'is_favorite') else False,
+        visibility=recipe_data.visibility if hasattr(recipe_data, 'visibility') else "private",
+        servings=recipe_data.servings if hasattr(recipe_data, 'servings') else 1
+    )
     
-    recipe = await recipe_manager.create_recipe(user_id, recipe_data)
-    return RecipeResponse.from_orm(recipe)
+    db.add(recipe)
+    db.commit()
+    db.refresh(recipe)
+    
+    return recipe_to_response(recipe)
 
 
 @router.get("", response_model=List[RecipeResponse])
-async def get_recipes(
+def get_recipes(
     search: Optional[str] = Query(None, description="Search query for recipe titles"),
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Get all recipes for the authenticated user, optionally filtered by search query."""
-    recipe_repo = RecipeRepository(db)
+    query = db.query(Recipe).filter(Recipe.user_id == user_id)
     
     if search:
-        # Use SearchEngine when search query is provided
-        search_engine = SearchEngine(recipe_repo)
-        recipes = await search_engine.search_recipes(user_id, search)
-    else:
-        # Return all user recipes when no search query
-        recipe_manager = RecipeManager(recipe_repo)
-        recipes = await recipe_manager.get_user_recipes(user_id)
-    return [RecipeResponse.from_orm(recipe) for recipe in recipes]
+        query = query.filter(Recipe.title.ilike(f"%{search}%"))
+    
+    recipes = query.order_by(desc(Recipe.created_at)).all()
+    return [recipe_to_response(recipe) for recipe in recipes]
 
 
 @router.delete("/bulk")
-async def bulk_delete_recipes(
+def bulk_delete_recipes(
     request: BulkDeleteRequest = Body(...),
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Delete multiple recipes atomically."""
-    # Validate all recipe IDs are valid ObjectIds
-    for recipe_id in request.recipe_ids:
-        validate_objectid(recipe_id, "recipe_id")
+    recipe_ids = [int(rid) for rid in request.recipe_ids]
     
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
+    # Verify all recipes belong to the user
+    recipes = db.query(Recipe).filter(
+        and_(
+            Recipe.id.in_(recipe_ids),
+            Recipe.user_id == user_id
+        )
+    ).all()
     
-    try:
-        deleted_count = await recipe_manager.bulk_delete_recipes(request.recipe_ids, user_id)
-        return {"deleted_count": deleted_count}
-    except ValueError as e:
+    if len(recipes) != len(recipe_ids):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
+            detail="One or more recipes not found or access denied",
             headers={"error_code": "RECIPE_NOT_FOUND"}
         )
-    except PermissionError as e:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e),
-            headers={"error_code": "FORBIDDEN"}
+    
+    deleted_count = db.query(Recipe).filter(
+        and_(
+            Recipe.id.in_(recipe_ids),
+            Recipe.user_id == user_id
         )
+    ).delete(synchronize_session=False)
+    
+    db.commit()
+    
+    return {"deleted_count": deleted_count}
 
 
 @router.get("/filter", response_model=List[RecipeResponse])
-async def filter_recipes(
+def filter_recipes(
     favorites: Optional[bool] = Query(None, description="Filter by favorite status"),
     min_rating: Optional[float] = Query(None, description="Minimum average rating threshold", ge=1, le=5),
     tags: Optional[str] = Query(None, description="Comma-separated list of tags"),
@@ -119,72 +150,81 @@ async def filter_recipes(
     exclude_allergens: Optional[str] = Query(None, description="Comma-separated list of allergens to exclude"),
     sort_by: Optional[str] = Query(None, description="Sort by field (date, rating, title)"),
     sort_order: Optional[str] = Query("asc", description="Sort order (asc or desc)"),
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
-    """
-    Filter and sort recipes with multiple criteria.
+    """Filter and sort recipes with multiple criteria."""
+    query = db.query(Recipe).filter(Recipe.user_id == user_id)
     
-    Query parameters:
-    - favorites: Filter by favorite status (true/false)
-    - min_rating: Minimum average rating (1-5)
-    - tags: Comma-separated tags (recipes with any of these tags)
-    - dietary_labels: Comma-separated dietary labels (vegan, vegetarian, gluten-free, etc.)
-    - exclude_allergens: Comma-separated allergens to exclude (nuts, dairy, eggs, etc.)
-    - sort_by: Sort field (date, rating, title)
-    - sort_order: Sort order (asc or desc)
-    """
-    # Parse comma-separated lists
-    tags_list = [tag.strip() for tag in tags.split(",")] if tags else None
-    dietary_labels_list = [label.strip() for label in dietary_labels.split(",")] if dietary_labels else None
-    exclude_allergens_list = [allergen.strip() for allergen in exclude_allergens.split(",")] if exclude_allergens else None
+    # Filter by favorites
+    if favorites is not None:
+        query = query.filter(Recipe.is_favorite == favorites)
     
-    # Validate sort_by parameter
-    if sort_by and sort_by not in ["date", "rating", "title"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid sort_by parameter. Must be one of: date, rating, title",
-            headers={"error_code": "INVALID_SORT_BY"}
+    # Filter by tags
+    if tags:
+        tags_list = [tag.strip() for tag in tags.split(",")]
+        tag_filters = []
+        for tag in tags_list:
+            tag_filters.append(Recipe.tags.like(f'%"{tag}"%'))
+        query = query.filter(or_(*tag_filters))
+    
+    # Filter by dietary labels
+    if dietary_labels:
+        labels_list = [label.strip() for label in dietary_labels.split(",")]
+        query = query.join(DietaryLabel).filter(DietaryLabel.label.in_(labels_list))
+    
+    # Exclude allergens
+    if exclude_allergens:
+        allergens_list = [allergen.strip() for allergen in exclude_allergens.split(",")]
+        # Subquery to find recipes with excluded allergens
+        excluded_recipe_ids = db.query(AllergenWarning.recipe_id).filter(
+            AllergenWarning.allergen.in_(allergens_list)
+        ).subquery()
+        query = query.filter(~Recipe.id.in_(excluded_recipe_ids))
+    
+    # Filter by minimum rating
+    if min_rating is not None:
+        # Subquery to calculate average ratings
+        avg_ratings = db.query(
+            RecipeRating.recipe_id,
+            func.avg(RecipeRating.rating).label('avg_rating')
+        ).group_by(RecipeRating.recipe_id).subquery()
+        
+        query = query.join(avg_ratings, Recipe.id == avg_ratings.c.recipe_id).filter(
+            avg_ratings.c.avg_rating >= min_rating
         )
     
-    # Validate sort_order parameter
-    if sort_order and sort_order.lower() not in ["asc", "desc"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid sort_order parameter. Must be 'asc' or 'desc'",
-            headers={"error_code": "INVALID_SORT_ORDER"}
+    # Apply sorting
+    if sort_by == "date":
+        query = query.order_by(desc(Recipe.created_at) if sort_order == "desc" else asc(Recipe.created_at))
+    elif sort_by == "title":
+        query = query.order_by(desc(Recipe.title) if sort_order == "desc" else asc(Recipe.title))
+    elif sort_by == "rating":
+        # Join with average ratings for sorting
+        avg_ratings = db.query(
+            RecipeRating.recipe_id,
+            func.avg(RecipeRating.rating).label('avg_rating')
+        ).group_by(RecipeRating.recipe_id).subquery()
+        
+        query = query.outerjoin(avg_ratings, Recipe.id == avg_ratings.c.recipe_id).order_by(
+            desc(avg_ratings.c.avg_rating) if sort_order == "desc" else asc(avg_ratings.c.avg_rating)
         )
+    else:
+        # Default sort by created_at desc
+        query = query.order_by(desc(Recipe.created_at))
     
-    # Apply filters and sorting
-    recipe_repo = RecipeRepository(db)
-    filter_engine = FilterEngine(recipe_repo)
-    recipes = await filter_engine.filter_recipes(
-        user_id=user_id,
-        favorites=favorites,
-        min_rating=min_rating,
-        tags=tags_list,
-        dietary_labels=dietary_labels_list,
-        exclude_allergens=exclude_allergens_list,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
-    
-    return [RecipeResponse.from_orm(recipe) for recipe in recipes]
+    recipes = query.all()
+    return [recipe_to_response(recipe) for recipe in recipes]
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)
-async def get_recipe(
-    recipe_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+def get_recipe(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Get a specific recipe by ID with ownership check."""
-    # Validate ObjectId
-    validate_objectid(recipe_id, "recipe_id")
-    
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
-    recipe = await recipe_manager.get_recipe_by_id(recipe_id)
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     
     if not recipe:
         raise HTTPException(
@@ -194,30 +234,25 @@ async def get_recipe(
         )
     
     # Verify ownership
-    if str(recipe["user_id"]) != user_id:
+    if recipe.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to access this recipe",
             headers={"error_code": "FORBIDDEN"}
         )
     
-    return RecipeResponse.from_orm(recipe)
+    return recipe_to_response(recipe)
 
 
 @router.put("/{recipe_id}", response_model=RecipeResponse)
-async def update_recipe(
-    recipe_id: str,
+def update_recipe(
+    recipe_id: int,
     recipe_data: RecipeUpdate,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Update a recipe with ownership validation."""
-    # Validate ObjectId
-    validate_objectid(recipe_id, "recipe_id")
-    
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
-    recipe = await recipe_manager.get_recipe_by_id(recipe_id)
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     
     if not recipe:
         raise HTTPException(
@@ -227,37 +262,35 @@ async def update_recipe(
         )
     
     # Verify ownership
-    if str(recipe["user_id"]) != user_id:
+    if recipe.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to update this recipe",
             headers={"error_code": "FORBIDDEN"}
         )
     
-    updated_recipe = await recipe_manager.update_recipe(recipe_id, user_id, recipe_data)
+    # Update fields
+    update_data = recipe_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        if field in ['ingredients', 'steps', 'tags'] and value is not None:
+            setattr(recipe, field, json.dumps(value))
+        else:
+            setattr(recipe, field, value)
     
-    if not updated_recipe:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update recipe"
-        )
+    db.commit()
+    db.refresh(recipe)
     
-    return RecipeResponse.from_orm(updated_recipe)
+    return recipe_to_response(recipe)
 
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_200_OK)
-async def delete_recipe(
-    recipe_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+def delete_recipe(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Delete a recipe with ownership validation."""
-    # Validate ObjectId
-    validate_objectid(recipe_id, "recipe_id")
-    
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
-    recipe = await recipe_manager.get_recipe_by_id(recipe_id)
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     
     if not recipe:
         raise HTTPException(
@@ -267,38 +300,28 @@ async def delete_recipe(
         )
     
     # Verify ownership
-    if str(recipe["user_id"]) != user_id:
+    if recipe.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to delete this recipe",
             headers={"error_code": "FORBIDDEN"}
         )
     
-    success = await recipe_manager.delete_recipe(recipe_id, user_id)
-    
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete recipe"
-        )
+    db.delete(recipe)
+    db.commit()
     
     return {"message": "Recipe deleted successfully"}
 
 
 @router.patch("/{recipe_id}/favorite")
-async def toggle_favorite(
-    recipe_id: str,
+def toggle_favorite(
+    recipe_id: int,
     request: FavoriteToggleRequest,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Toggle favorite status for a recipe."""
-    # Validate ObjectId
-    validate_objectid(recipe_id, "recipe_id")
-    
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
-    recipe = await recipe_manager.get_recipe_by_id(recipe_id)
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     
     if not recipe:
         raise HTTPException(
@@ -308,33 +331,27 @@ async def toggle_favorite(
         )
     
     # Verify ownership
-    if str(recipe["user_id"]) != user_id:
+    if recipe.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to modify this recipe",
             headers={"error_code": "FORBIDDEN"}
         )
     
-    # Update favorite status
-    await recipe_repo.update(recipe_id, {"is_favorite": request.is_favorite})
-    updated_recipe = await recipe_repo.find_by_id(recipe_id)
+    recipe.is_favorite = request.is_favorite
+    db.commit()
     
-    return {"id": str(updated_recipe["_id"]), "is_favorite": updated_recipe["is_favorite"]}
+    return {"id": str(recipe.id), "is_favorite": recipe.is_favorite}
 
 
 @router.post("/{recipe_id}/duplicate", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
-async def duplicate_recipe(
-    recipe_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
+def duplicate_recipe(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Duplicate an existing recipe."""
-    # Validate ObjectId
-    validate_objectid(recipe_id, "recipe_id")
-    
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
-    recipe = await recipe_manager.get_recipe_by_id(recipe_id)
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     
     if not recipe:
         raise HTTPException(
@@ -344,131 +361,31 @@ async def duplicate_recipe(
         )
     
     # Verify ownership
-    if str(recipe["user_id"]) != user_id:
+    if recipe.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to duplicate this recipe",
             headers={"error_code": "FORBIDDEN"}
         )
     
-    duplicated_recipe = await recipe_manager.duplicate_recipe(recipe_id, user_id)
+    # Create duplicate
+    duplicated_recipe = Recipe(
+        user_id=user_id,
+        title=f"{recipe.title} (Copy)",
+        image_url=recipe.image_url,
+        ingredients=recipe.ingredients,
+        steps=recipe.steps,
+        tags=recipe.tags,
+        reference_link=recipe.reference_link,
+        is_favorite=False,
+        visibility=recipe.visibility,
+        servings=recipe.servings,
+        source_recipe_id=recipe.id,
+        source_author_id=recipe.user_id
+    )
     
-    if not duplicated_recipe:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to duplicate recipe"
-        )
+    db.add(duplicated_recipe)
+    db.commit()
+    db.refresh(duplicated_recipe)
     
-    return RecipeResponse.from_orm(duplicated_recipe)
-
-
-
-@router.post("/import-url", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
-async def import_recipe_from_url(
-    request: URLImportRequest,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb),
-    user_id: str = Depends(get_current_user_id)
-):
-    """
-    Import a recipe from a URL by parsing the webpage content.
-    Requirements: 34.1, 34.2, 34.3, 34.4
-    """
-    recipe_repo = RecipeRepository(db)
-    user_repo = UserRepository(db)
-    like_repo = RecipeLikeRepository(db)
-    comment_repo = RecipeCommentRepository(db)
-    follow_repo = UserFollowRepository(db)
-    
-    sharing_service = SharingService(recipe_repo, user_repo, like_repo, comment_repo, follow_repo)
-    recipe = await sharing_service.import_recipe_from_url(request.url, user_id)
-    
-    if not recipe:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to import recipe from URL. The URL may be invalid or the page does not contain parseable recipe data.",
-            headers={"error_code": "IMPORT_FAILED"}
-        )
-    
-    return RecipeResponse.from_orm(recipe)
-
-
-@router.get("/{recipe_id}/qrcode")
-async def get_recipe_qr_code(
-    recipe_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb)
-):
-    """
-    Generate a QR code for a recipe.
-    Returns PNG image bytes.
-    Requirements: 36.1, 36.2, 36.3
-    """
-    # Validate ObjectId
-    validate_objectid(recipe_id, "recipe_id")
-    
-    # Check if recipe exists
-    recipe_repo = RecipeRepository(db)
-    recipe_manager = RecipeManager(recipe_repo)
-    recipe = await recipe_manager.get_recipe_by_id(recipe_id)
-    
-    if not recipe:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Recipe not found",
-            headers={"error_code": "RECIPE_NOT_FOUND"}
-        )
-    
-    # Generate recipe URL (use public URL if recipe is public/unlisted)
-    # For now, use a placeholder base URL - in production this would come from config
-    base_url = "http://localhost:3000"
-    visibility = recipe.get("visibility", "private")
-    if visibility in ['public', 'unlisted']:
-        recipe_url = f"{base_url}/recipes/public/{recipe_id}"
-    else:
-        recipe_url = f"{base_url}/recipes/{recipe_id}"
-    
-    # Generate QR code
-    user_repo = UserRepository(db)
-    like_repo = RecipeLikeRepository(db)
-    comment_repo = RecipeCommentRepository(db)
-    follow_repo = UserFollowRepository(db)
-    
-    sharing_service = SharingService(recipe_repo, user_repo, like_repo, comment_repo, follow_repo)
-    qr_code_bytes = sharing_service.generate_qr_code(recipe_url)
-    
-    # Return as PNG image
-    return Response(content=qr_code_bytes, media_type="image/png")
-
-
-@router.get("/{recipe_id}/share-metadata", response_model=ShareMetadataResponse)
-async def get_recipe_share_metadata(
-    recipe_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_mongodb)
-):
-    """
-    Get social media share metadata for a recipe.
-    Returns metadata formatted for Open Graph and Twitter Cards.
-    Requirements: 35.1, 35.2
-    """
-    # Validate ObjectId
-    validate_objectid(recipe_id, "recipe_id")
-    
-    # Use placeholder base URL - in production this would come from config
-    base_url = "http://localhost:3000"
-    
-    recipe_repo = RecipeRepository(db)
-    user_repo = UserRepository(db)
-    like_repo = RecipeLikeRepository(db)
-    comment_repo = RecipeCommentRepository(db)
-    follow_repo = UserFollowRepository(db)
-    
-    sharing_service = SharingService(recipe_repo, user_repo, like_repo, comment_repo, follow_repo)
-    metadata = await sharing_service.get_share_metadata(recipe_id, base_url)
-    
-    if not metadata:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Recipe not found",
-            headers={"error_code": "RECIPE_NOT_FOUND"}
-        )
-    
-    return metadata
+    return recipe_to_response(duplicated_recipe)

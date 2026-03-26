@@ -45,7 +45,7 @@ export default function CommentList({ comments }: CommentListProps) {
           >
             <div className="flex items-start gap-3">
               {/* Avatar */}
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                 {comment.author.username.charAt(0).toUpperCase()}
               </div>
 

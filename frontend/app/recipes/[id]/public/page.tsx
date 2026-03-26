@@ -171,7 +171,7 @@ export default function PublicRecipePage() {
                 href={`/users/${recipe.author.id}`}
                 className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
               >
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center text-white text-sm font-bold">
                   {recipe.author.username.charAt(0).toUpperCase()}
                 </div>
                 <span className="font-medium">{recipe.author.username}</span>

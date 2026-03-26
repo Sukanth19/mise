@@ -24,8 +24,7 @@ class Recipe(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(500), nullable=False, index=True)
     image_url = Column(String(1000), nullable=True)
-    # Using Text for SQLite compatibility - will store JSON strings
-    # In production with PostgreSQL, these would be ARRAY(Text)
+    # Using Text for SQLite/MySQL compatibility - storing as JSON strings or comma-separated
     ingredients = Column(Text, nullable=False)
     steps = Column(Text, nullable=False)
     tags = Column(Text, nullable=True)

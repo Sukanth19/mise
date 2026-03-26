@@ -122,7 +122,7 @@ export default function UserProfile({ userId, currentUserId }: UserProfileProps)
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             {/* Avatar Placeholder */}
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
+            <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-3xl font-bold">
               {profileData.user.username.charAt(0).toUpperCase()}
             </div>
 

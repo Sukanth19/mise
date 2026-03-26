@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base, health_check
-from app.routers import auth, recipes, images, ratings, notes, collections, meal_plans, shopping_list, nutrition, social
+from app.routers import auth, recipes, collections
+# TODO: Update these routers to use SQLAlchemy instead of MongoDB
+# from app.routers import images, ratings, notes, meal_plans, shopping_list, nutrition, social
 from app.config import settings
 import os
 import logging
@@ -10,8 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Create database tables
-# Note: Commented out for testing with SQLite which doesn't support ARRAY types
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Recipe Saver API")
 
@@ -111,16 +112,17 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 
 # Include routers
 app.include_router(auth.router)
-app.include_router(social.router)  # Must be before recipes router to match /api/recipes/discover
 app.include_router(recipes.router)
-app.include_router(images.router)
-app.include_router(ratings.router)
-app.include_router(notes.router)
 app.include_router(collections.router)
-app.include_router(meal_plans.router)
-app.include_router(meal_plans.template_router)
-app.include_router(shopping_list.router)
-app.include_router(nutrition.router)
+# TODO: Re-enable these routers after converting them to SQLAlchemy
+# app.include_router(social.router)
+# app.include_router(images.router)
+# app.include_router(ratings.router)
+# app.include_router(notes.router)
+# app.include_router(meal_plans.router)
+# app.include_router(meal_plans.template_router)
+# app.include_router(shopping_list.router)
+# app.include_router(nutrition.router)
 
 
 @app.get("/")
