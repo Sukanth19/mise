@@ -5,7 +5,7 @@ This guide covers deploying the Recipe Saver application with all enhancements.
 ## Prerequisites
 
 - Python 3.8 or higher
-- PostgreSQL 12+ (for production) or SQLite (for development)
+- MySQL 8.0+ (for production) or SQLite (for development)
 - Node.js 16+ (for frontend)
 - Git
 
@@ -32,8 +32,8 @@ Create a `.env` file in the `backend` directory:
 # For development (SQLite)
 DATABASE_URL=sqlite:///./recipe_saver.db
 
-# For production (PostgreSQL)
-# DATABASE_URL=postgresql://username:password@localhost:5432/recipe_saver
+# For production (MySQL)
+# DATABASE_URL=mysql+pymysql://username:password@localhost:3306/recipe_saver
 
 SECRET_KEY=your-secret-key-here-change-in-production
 ALGORITHM=HS256
@@ -108,7 +108,7 @@ The `migrations/` directory contains SQL migration files:
 ### Migration Runner
 
 The `run_migrations.py` script:
-- Automatically detects database type (SQLite or PostgreSQL)
+- Automatically detects database type (SQLite or MySQL)
 - Tracks applied migrations in `applied_migrations` table
 - Applies pending migrations in order
 - Commits each statement separately for SQLite compatibility
@@ -156,16 +156,18 @@ All required dependencies are in `requirements.txt`:
 
 ### Database
 
-**PostgreSQL Setup:**
-```sql
-CREATE DATABASE recipe_saver;
-CREATE USER recipe_user WITH PASSWORD 'secure_password';
-GRANT ALL PRIVILEGES ON DATABASE recipe_saver TO recipe_user;
+**MySQL Setup:**
+
+```bash
+# Start MySQL via Docker
+docker-compose up -d
+
+# Or use a managed MySQL service (AWS RDS, Google Cloud SQL, etc.)
 ```
 
 Update `.env`:
 ```
-DATABASE_URL=postgresql://recipe_user:secure_password@localhost:5432/recipe_saver
+DATABASE_URL=mysql+pymysql://recipe_user:recipe_password@localhost:3306/recipe_saver
 ```
 
 ### Security
@@ -178,7 +180,7 @@ DATABASE_URL=postgresql://recipe_user:secure_password@localhost:5432/recipe_save
 
 ### Performance
 
-1. **Use PostgreSQL** - Better performance than SQLite for production
+1. **Use MySQL** - Better performance than SQLite for production
 2. **Add indexes** - All migrations include necessary indexes
 3. **Use gunicorn** - Multiple worker processes for better concurrency
 4. **Static files** - Serve uploads through nginx or CDN
@@ -208,7 +210,7 @@ DATABASE_URL=postgresql://recipe_user:secure_password@localhost:5432/recipe_save
 **Problem:** "database is locked" error (SQLite)
 **Solution:** 
 - Close other connections to the database
-- Use PostgreSQL for production (better concurrency)
+- Use MySQL for production (better concurrency)
 
 **Problem:** Connection pool exhausted
 **Solution:** Increase pool size in `app/database.py`
@@ -231,8 +233,8 @@ If you need to rollback a deployment:
 
 1. **Restore database backup:**
 ```bash
-# PostgreSQL
-pg_restore -d recipe_saver backup_file.dump
+# MySQL
+mysql -u recipe_user -p recipe_saver < backup_file.sql
 
 # SQLite
 cp backup_file.db recipe_saver.db

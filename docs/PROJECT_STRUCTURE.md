@@ -153,7 +153,7 @@ mise/
 ### Backend
 - FastAPI - Modern async web framework
 - SQLAlchemy - ORM for database operations
-- PostgreSQL - Primary database
+- MySQL - Primary database
 - JWT - Token-based authentication
 - pytest + hypothesis - Testing framework
 
@@ -187,7 +187,7 @@ mise/
 
 1. Backend runs on port 8000
 2. Frontend runs on port 3000
-3. PostgreSQL runs on port 5432
+3. MySQL runs on port 3306 (via Docker)
 4. Images stored in backend/uploads/ (gitignored)
 5. Tests run independently for backend and frontend
 

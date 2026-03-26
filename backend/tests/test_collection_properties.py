@@ -312,8 +312,8 @@ def test_cascading_collection_deletion_property(db, num_children):
     assert parent_retrieved is None, "Parent collection should be deleted"
     
     # Verify all children are also deleted (cascading)
-    # Note: SQLite may not support cascading deletes in the same way as PostgreSQL
-    # In production with PostgreSQL, this should work automatically
+    # Note: SQLite may not support cascading deletes in the same way as MySQL
+    # In production with MySQL, this should work automatically
     # For SQLite testing, we verify the behavior is correct
     db.expire_all()  # Clear the session cache to force fresh queries
     for child in children:

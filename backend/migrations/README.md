@@ -17,11 +17,7 @@ The migrations are numbered sequentially and should be applied in order:
 
 ## Database Compatibility
 
-The migration scripts are written for **SQLite** (the current development database). For **PostgreSQL** production deployment, use the scripts in the `postgresql/` subdirectory which include:
-
-- `SERIAL` instead of `INTEGER PRIMARY KEY AUTOINCREMENT`
-- Proper `TIMESTAMP` handling
-- PostgreSQL-specific syntax
+The migration scripts are written for **SQLite** (the current development database) and **MySQL** (for production deployment).
 
 ## Running Migrations
 
@@ -73,7 +69,7 @@ python run_migrations.py
 ```
 
 This script will:
-- Detect the database type (SQLite or PostgreSQL) from the DATABASE_URL
+- Detect the database type (SQLite or MySQL) from the DATABASE_URL
 - Apply all pending migrations in order
 - Track which migrations have been applied
 - Skip already-applied migrations

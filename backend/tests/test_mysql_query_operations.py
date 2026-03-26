@@ -1,7 +1,6 @@
 """
 Unit tests for query operations with MySQL.
 
-Feature: mongodb-migration
 Task 5.1: Test filtering and sorting
 """
 

@@ -1,7 +1,7 @@
 """Unit tests for repository structure and initialization.
 
 These tests verify the repository classes are properly structured
-without requiring a MongoDB connection.
+without requiring a database connection.
 """
 
 import pytest

@@ -4,7 +4,7 @@
 
 - Python 3.10+
 - Node.js 18+
-- PostgreSQL 14+
+- MySQL 8.0+ (via Docker or local installation)
 
 ## New Dependencies
 
@@ -22,28 +22,15 @@ These are included in `backend/requirements.txt` and will be installed automatic
 ### 1. Database Setup
 
 ```bash
-# Create database
-createdb recipe_saver
+# Start MySQL via Docker
+docker-compose up -d
 
-# Initialize schema
-psql -U postgres -d recipe_saver -f database/init.sql
+# Database will be automatically initialized on first run
 ```
 
 **Database Migrations:**
 
-The enhancements add many new tables and columns. If you have an existing database, run the migration scripts:
-
-```bash
-# Run all migrations in order
-psql -U postgres -d recipe_saver -f database/migrations/001_add_recipe_extensions.sql
-psql -U postgres -d recipe_saver -f database/migrations/002_add_ratings.sql
-psql -U postgres -d recipe_saver -f database/migrations/003_add_notes.sql
-psql -U postgres -d recipe_saver -f database/migrations/004_add_collections.sql
-psql -U postgres -d recipe_saver -f database/migrations/005_add_meal_plans.sql
-psql -U postgres -d recipe_saver -f database/migrations/006_add_shopping_lists.sql
-psql -U postgres -d recipe_saver -f database/migrations/007_add_nutrition.sql
-psql -U postgres -d recipe_saver -f database/migrations/008_add_social.sql
-```
+Migrations are automatically applied when the application starts. No manual steps required.
 
 **New Tables:**
 - `recipe_ratings` - 5-star recipe ratings
@@ -88,7 +75,8 @@ Edit `backend/.env` with the following settings:
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/recipe_saver
+DATABASE_URL=mysql+pymysql://recipe_user:recipe_password@localhost:3306/recipe_saver
+DATABASE_TYPE=mysql
 
 # Authentication
 SECRET_KEY=your-secret-key-here-use-a-long-random-string
@@ -165,17 +153,18 @@ npm test -- --watch     # Watch mode
 
 ### Database Connection Issues
 
-1. Verify PostgreSQL is running:
+1. Verify MySQL is running:
 ```bash
-sudo systemctl status postgresql  # Linux
-brew services list               # macOS
+docker ps | grep mysql  # If using Docker
+sudo systemctl status mysql  # Linux
+brew services list  # macOS
 ```
 
 2. Check credentials in `backend/.env`
 
 3. Verify database exists:
 ```bash
-psql -U postgres -l | grep recipe_saver
+docker exec -it recipe_saver_mysql mysql -u recipe_user -precipe_password -e "SHOW DATABASES;"
 ```
 
 ### Port Conflicts

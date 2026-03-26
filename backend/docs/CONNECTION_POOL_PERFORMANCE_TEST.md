@@ -446,5 +446,3 @@ After running these tests:
 
 - SQLAlchemy Connection Pooling: https://docs.sqlalchemy.org/en/14/core/pooling.html
 - MySQL Connection Management: https://dev.mysql.com/doc/refman/8.0/en/connection-management.html
-- Requirements Document: `.kiro/specs/mongodb-migration/requirements.md`
-- Design Document: `.kiro/specs/mongodb-migration/design.md`

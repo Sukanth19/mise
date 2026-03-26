@@ -322,13 +322,13 @@ CREATE FULLTEXT INDEX idx_search ON recipes(title, ingredients);
 SHOW INDEX FROM recipes WHERE Index_type = 'FULLTEXT';
 ```
 
-## Comparison with SQLite/PostgreSQL
+## Comparison with SQLite
 
 ### Performance Characteristics
 
-| Aspect | SQLite | PostgreSQL | MySQL |
-|--------|--------|------------|-------|
-| Simple queries | Fast | Fast | Fast |
+| Aspect | SQLite | MySQL |
+|--------|--------|-------|
+| Simple queries | Fast | Fast |
 | Complex JOINs | Moderate | Fast | Fast |
 | Full-text search | Limited | Excellent | Good |
 | Concurrent writes | Limited | Excellent | Good |
@@ -343,7 +343,7 @@ SHOW INDEX FROM recipes WHERE Index_type = 'FULLTEXT';
 - Better scalability for large datasets
 
 **Baseline Comparison:**
-The performance tests establish MySQL baselines that can be compared with SQLite/PostgreSQL performance if needed.
+The performance tests establish MySQL baselines that can be compared with SQLite performance if needed.
 
 ## Continuous Performance Monitoring
 

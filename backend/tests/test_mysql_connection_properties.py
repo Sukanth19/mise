@@ -1,7 +1,7 @@
 """
 Property-based tests for MySQL connection string validation.
 
-Feature: mongodb-migration
+Tests for connection string format validation.
 """
 
 import pytest
@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from app.config import Settings
 
 
-# Feature: mongodb-migration, Property 15: Connection String Validation
+# Property 15: Connection String Validation
 @given(
     invalid_url=st.one_of(
         # Invalid MySQL connection string formats
@@ -25,7 +25,6 @@ from app.config import Settings
         st.just("mysql+pymysql://user:pass@localhost:abc/db"),  # Invalid port
         st.just("mysql+pymysql://user:pass@localhost:3306/"),  # Empty database
         # Common mistakes
-        st.just("postgresql://user:pass@localhost:5432/db"),
         st.just("sqlite:///./test.db"),
         st.just("mysql+mysqldb://user:pass@localhost:3306/db"),  # Wrong driver
         st.just("mysql+pymysql://"),
@@ -48,9 +47,7 @@ def test_invalid_mysql_connection_string_fails_validation(invalid_url: str):
     with pytest.raises(ValidationError) as exc_info:
         Settings(
             database_url=invalid_url,
-            secret_key="test-secret-key",
-            mongodb_url="mongodb://localhost:27017",
-            mongodb_database="test_db"
+            secret_key="test-secret-key"
         )
     
     # Verify that the error is descriptive
@@ -62,7 +59,7 @@ def test_invalid_mysql_connection_string_fails_validation(invalid_url: str):
     ]), f"Error message should be descriptive. Got: {error_message}"
 
 
-# Feature: mongodb-migration, Property 15: Connection String Validation
+# Property 15: Connection String Validation
 @given(
     valid_components=st.tuples(
         st.text(min_size=1, max_size=50, alphabet=st.characters(
@@ -102,9 +99,7 @@ def test_valid_mysql_connection_string_passes_validation(valid_components):
     # Should not raise any validation errors
     settings = Settings(
         database_url=valid_url,
-        secret_key="test-secret-key",
-        mongodb_url="mongodb://localhost:27017",
-        mongodb_database="test_db"
+        secret_key="test-secret-key"
     )
     
     # Verify the URL was accepted
@@ -128,9 +123,7 @@ def test_mysql_connection_string_validation_specific_cases():
         # Should not raise any validation errors
         settings = Settings(
             database_url=valid_url,
-            secret_key="test-secret-key",
-            mongodb_url="mongodb://localhost:27017",
-            mongodb_database="test_db"
+            secret_key="test-secret-key"
         )
         assert settings.database_url == valid_url
 
@@ -152,9 +145,7 @@ def test_mysql_connection_string_validation_error_messages():
         with pytest.raises(ValidationError) as exc_info:
             Settings(
                 database_url=invalid_url,
-                secret_key="test-secret-key",
-                mongodb_url="mongodb://localhost:27017",
-                mongodb_database="test_db"
+                secret_key="test-secret-key"
             )
         
         error_message = str(exc_info.value)
@@ -177,9 +168,7 @@ def test_mysql_connection_from_components():
         mysql_password="testpass",
         mysql_host="localhost",
         mysql_port=3306,
-        mysql_database="testdb",
-        mongodb_url="mongodb://localhost:27017",
-        mongodb_database="test_db"
+        mysql_database="testdb"
     )
     
     expected_url = "mysql+pymysql://testuser:testpass@localhost:3306/testdb"
@@ -198,10 +187,8 @@ def test_mysql_connection_missing_components_fails():
             database_url=None,
             secret_key="test-secret-key",
             mysql_user="testuser",
-            mysql_password="testpass",
+            mysql_password="testpass"
             # Missing mysql_host, mysql_port, mysql_database
-            mongodb_url="mongodb://localhost:27017",
-            mongodb_database="test_db"
         )
     
     error_message = str(exc_info.value)

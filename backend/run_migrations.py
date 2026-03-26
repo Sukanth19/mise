@@ -2,7 +2,7 @@
 """
 Database migration runner for Recipe Saver Enhancements.
 
-This script automatically detects the database type (SQLite or PostgreSQL)
+This script automatically detects the database type (SQLite or MySQL)
 and applies all pending migrations in order.
 """
 
@@ -18,9 +18,6 @@ def get_migration_files(db_type: str) -> list[Path]:
     """Get list of migration files for the specified database type."""
     migrations_dir = Path(__file__).parent / "migrations"
     
-    if db_type == "postgresql":
-        migrations_dir = migrations_dir / "postgresql"
-    
     # Get all .sql files and sort them
     migration_files = sorted(migrations_dir.glob("*.sql"))
     return migration_files
@@ -32,19 +29,6 @@ def create_migrations_table():
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS applied_migrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                migration_name VARCHAR(255) NOT NULL UNIQUE,
-                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
-        conn.commit()
-
-
-def create_migrations_table_postgresql():
-    """Create a table to track applied migrations (PostgreSQL version)."""
-    with engine.connect() as conn:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS applied_migrations (
-                id SERIAL PRIMARY KEY,
                 migration_name VARCHAR(255) NOT NULL UNIQUE,
                 applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -107,19 +91,16 @@ def main():
     if db_url.startswith("sqlite"):
         db_type = "sqlite"
         print("Detected database: SQLite")
-    elif db_url.startswith("postgresql"):
-        db_type = "postgresql"
-        print("Detected database: PostgreSQL")
+    elif db_url.startswith("mysql"):
+        db_type = "mysql"
+        print("Detected database: MySQL")
     else:
         print(f"Unsupported database type: {db_url}")
         sys.exit(1)
     
     # Create migrations tracking table
     print("\nInitializing migrations tracking...")
-    if db_type == "sqlite":
-        create_migrations_table()
-    else:
-        create_migrations_table_postgresql()
+    create_migrations_table()
     
     # Get applied migrations
     applied = get_applied_migrations()

@@ -1,7 +1,7 @@
 """
 Unit tests for basic CRUD operations with MySQL.
 
-Feature: mongodb-migration
+
 Task 4.1: Test basic CRUD operations
 """
 

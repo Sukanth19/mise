@@ -1,12 +1,11 @@
 """Database connection management for Recipe Saver application.
 
-Supports both SQLAlchemy (PostgreSQL/SQLite) and MongoDB.
+Supports SQLAlchemy with MySQL and SQLite.
 """
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from typing import Optional
 import logging
 import os
@@ -14,7 +13,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# SQLAlchemy setup (existing)
+# SQLAlchemy setup
 Base = declarative_base()
 
 
@@ -57,8 +56,7 @@ def _create_engine_with_config(database_url: str):
         
         return engine
     else:
-        # PostgreSQL or other databases
-        return create_engine(database_url)
+        raise ValueError(f"Unsupported database URL: {database_url}. Only MySQL and SQLite are supported.")
 
 
 engine = _create_engine_with_config(settings.database_url)
@@ -100,83 +98,3 @@ def health_check() -> bool:
         
         return False
 
-
-# MongoDB setup (new)
-class MongoDB:
-    """MongoDB connection manager with async support."""
-    
-    client: Optional[AsyncIOMotorClient] = None
-    database: Optional[AsyncIOMotorDatabase] = None
-    _database_name: Optional[str] = None
-    
-    async def connect(self, connection_string: str, database_name: str) -> None:
-        """
-        Establish MongoDB connection with connection pooling.
-        
-        Args:
-            connection_string: MongoDB connection URI
-            database_name: Name of the database to use
-            
-        Raises:
-            Exception: If connection fails
-        """
-        try:
-            logger.info(f"Connecting to MongoDB database: {database_name}")
-            self.client = AsyncIOMotorClient(connection_string)
-            self.database = self.client[database_name]
-            self._database_name = database_name
-            
-            # Verify connection with ping
-            await self.ping()
-            logger.info("Successfully connected to MongoDB")
-            
-        except Exception as e:
-            logger.error(f"Failed to connect to MongoDB at {connection_string}: {e}")
-            raise
-    
-    async def disconnect(self) -> None:
-        """Close MongoDB connection gracefully."""
-        if self.client:
-            logger.info("Closing MongoDB connection")
-            self.client.close()
-            self.client = None
-            self.database = None
-            self._database_name = None
-    
-    async def get_database(self) -> AsyncIOMotorDatabase:
-        """
-        Get the database instance.
-        
-        Returns:
-            AsyncIOMotorDatabase instance
-            
-        Raises:
-            RuntimeError: If database is not connected
-        """
-        if self.database is None:
-            raise RuntimeError("Database not connected. Call connect() first.")
-        return self.database
-    
-    async def ping(self) -> bool:
-        """
-        Health check - ping MongoDB server.
-        
-        Returns:
-            True if ping successful
-            
-        Raises:
-            Exception: If ping fails
-        """
-        if self.client is None:
-            raise RuntimeError("Client not connected. Call connect() first.")
-        
-        try:
-            await self.client.admin.command('ping')
-            return True
-        except Exception as e:
-            logger.error(f"MongoDB ping failed: {e}")
-            raise
-
-
-# Global MongoDB instance
-mongodb = MongoDB()

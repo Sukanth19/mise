@@ -1,7 +1,7 @@
 """
 Property-based tests for query operations with MySQL.
 
-Feature: mongodb-migration
+
 Task 5.2: Write property tests for query operations
 """
 
@@ -69,7 +69,7 @@ def test_property_filter_correctness(db, username, password, visibility_filter, 
     
     For any query filter conditions, all returned records should satisfy those conditions.
     
-    Feature: mongodb-migration, Property 5: Filter Correctness
+    Property 5: Filter Correctness
     **Validates: Requirements 3.6**
     """
     # Create user
@@ -121,7 +121,7 @@ def test_property_filter_by_servings(db, username, password, servings_filter, nu
     """
     Property 5: Filter Correctness (servings)
     
-    Feature: mongodb-migration, Property 5: Filter Correctness
+    Property 5: Filter Correctness
     **Validates: Requirements 3.6**
     """
     # Create user
@@ -178,7 +178,7 @@ def test_property_sort_order_correctness_title_asc(db, username, password, num_r
     
     For any sort specification, returned records should be ordered according to the sort criteria.
     
-    Feature: mongodb-migration, Property 6: Sort Order Correctness
+    Property 6: Sort Order Correctness
     **Validates: Requirements 3.7**
     """
     # Create user
@@ -227,7 +227,7 @@ def test_property_sort_order_correctness_servings_desc(db, username, password, n
     """
     Property 6: Sort Order Correctness (servings descending)
     
-    Feature: mongodb-migration, Property 6: Sort Order Correctness
+    Property 6: Sort Order Correctness
     **Validates: Requirements 3.7**
     """
     # Create user
@@ -287,7 +287,7 @@ def test_property_pagination_subset_correctness(db, username, password, num_reci
     For any pagination parameters (skip, limit), the returned records should be 
     the correct subset of the full result set.
     
-    Feature: mongodb-migration, Property 7: Pagination Subset Correctness
+    Property 7: Pagination Subset Correctness
     **Validates: Requirements 3.8**
     """
     # Create user
@@ -360,7 +360,7 @@ def test_property_text_search_relevance(db, username, password, search_term, num
     For any text search query, all returned records should contain the search 
     terms in the indexed fields.
     
-    Feature: mongodb-migration, Property 8: Text Search Relevance
+    Property 8: Text Search Relevance
     **Validates: Requirements 3.9**
     """
     # Ensure search term is not empty after stripping
@@ -425,7 +425,7 @@ def test_property_text_search_ingredients(db, username, password, search_term, n
     """
     Property 8: Text Search Relevance (ingredients)
     
-    Feature: mongodb-migration, Property 8: Text Search Relevance
+    Property 8: Text Search Relevance
     **Validates: Requirements 3.9**
     """
     # Ensure search term is not empty after stripping
@@ -493,7 +493,7 @@ def test_property_pagination_limit_enforcement(db, username, password, num_recip
     For any query, the number of returned records should not exceed the maximum 
     page size (100).
     
-    Feature: mongodb-migration, Property 16: Pagination Limit Enforcement
+    Property 16: Pagination Limit Enforcement
     **Validates: Requirements 9.5**
     """
     # Create user
@@ -548,7 +548,7 @@ def test_property_pagination_no_limit_defaults(db, username, password, num_recip
     """
     Property 16: Pagination Limit Enforcement (no explicit limit)
     
-    Feature: mongodb-migration, Property 16: Pagination Limit Enforcement
+    Property 16: Pagination Limit Enforcement
     **Validates: Requirements 9.5**
     """
     # Create user

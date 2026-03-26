@@ -24,7 +24,7 @@ Investigated test failures from the full test suite. Out of 282 tests:
 ### 2. AuthService Async/Sync Mismatch (Multiple FAILURES)
 **Issue**: `AuthService` has async methods but property tests are calling them synchronously
 
-**Root Cause**: The AuthService class is designed for MongoDB (async) but tests are trying to use it with SQLAlchemy (sync) directly.
+**Root Cause**: The AuthService class has async methods but tests are trying to use it synchronously with SQLAlchemy.
 
 **Error Pattern**:
 ```
@@ -40,13 +40,13 @@ sqlite3.OperationalError: no such table: users
 **Why It Fails**: 
 1. Tests call `AuthService.create_user(db, username, password)` as if it's synchronous
 2. But `AuthService.create_user()` is actually `async def create_user()`
-3. The method expects a MongoDB repository, not a SQLAlchemy session
-4. Tests are passing SQLAlchemy `db` session but AuthService expects MongoDB operations
+3. The method expects a repository, not a SQLAlchemy session
+4. Tests are passing SQLAlchemy `db` session but AuthService expects async operations
 
 **Solution Needed**: 
 - Option A: Create a sync version of AuthService for SQLAlchemy tests
 - Option B: Use SQLAlchemy User model directly in tests instead of AuthService
-- Option C: Make tests async and use proper MongoDB setup
+- Option C: Make tests async and use proper async setup
 
 **Recommendation**: Use SQLAlchemy models directly in property tests:
 ```python
@@ -180,9 +180,8 @@ with pytest.raises(ValidationError):
 7. Add `db.refresh()` calls after commits in tests
 
 ### Low Priority (Test Infrastructure)
-8. Consider separating MongoDB tests from SQLAlchemy tests
-9. Add better error handling in test fixtures
-10. Document test patterns for future test writers
+8. Add better error handling in test fixtures
+9. Document test patterns for future test writers
 
 ---
 

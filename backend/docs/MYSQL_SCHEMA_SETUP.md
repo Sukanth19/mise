@@ -269,7 +269,7 @@ This script satisfies the following requirements from the MySQL migration spec:
 After creating the schema:
 
 1. Update the `.env` file to use the MySQL connection string
-2. Run the data migration script (if migrating from PostgreSQL/SQLite)
+2. Run the data migration script (if migrating from SQLite)
 3. Start the FastAPI application
 4. Run tests to verify functionality
 

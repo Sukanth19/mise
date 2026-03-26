@@ -1,7 +1,6 @@
 """
 Unit tests for relationship loading with MySQL.
 
-Feature: mongodb-migration
 Task 4.3: Test relationship loading
 """
 

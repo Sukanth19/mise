@@ -20,7 +20,7 @@ from app.database import Base
 from app.models import User, Recipe, NutritionFacts, RecipeRating
 
 
-# Feature: mongodb-migration, Property 10: Migration Record Count Preservation
+# Property 10: Migration Record Count Preservation
 @given(
     num_users=st.integers(min_value=1, max_value=5),
     num_recipes_per_user=st.integers(min_value=0, max_value=3)
@@ -119,7 +119,7 @@ def test_migration_record_count_preservation_property(num_users, num_recipes_per
             pass
 
 
-# Feature: mongodb-migration, Property 11: Migration Data Preservation
+# Property 11: Migration Data Preservation
 @given(
     username=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),
     title=st.text(min_size=1, max_size=50, alphabet=st.characters(min_codepoint=32, max_codepoint=126)),
@@ -230,7 +230,7 @@ def test_migration_data_preservation_property(username, title, num_ingredients, 
             pass
 
 
-# Feature: mongodb-migration, Property 12: Migration Relationship Preservation
+# Property 12: Migration Relationship Preservation
 @given(
     num_users=st.integers(min_value=2, max_value=3),
     num_recipes_per_user=st.integers(min_value=1, max_value=2)
@@ -354,7 +354,7 @@ def test_migration_relationship_preservation_property(num_users, num_recipes_per
             pass
 
 
-# Feature: mongodb-migration, Property 13: Migration Constraint Preservation
+# Property 13: Migration Constraint Preservation
 @given(
     username=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),
     rating=st.integers(min_value=1, max_value=5)
@@ -486,7 +486,7 @@ def test_migration_constraint_preservation_property(username, rating):
             pass
 
 
-# Feature: mongodb-migration, Property 21: Reverse Migration Round Trip
+# Property 21: Reverse Migration Round Trip
 @given(
     username=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),
     title=st.text(min_size=1, max_size=50, alphabet=st.characters(min_codepoint=32, max_codepoint=126)),
@@ -500,7 +500,7 @@ def test_reverse_migration_round_trip_property(username, title, num_ingredients,
     """
     Property 21: Reverse Migration Round Trip
     
-    For any record in MySQL, reverse migrating to PostgreSQL/SQLite and then 
+    For any record in MySQL, reverse migrating to SQLite and then 
     forward migrating back to MySQL should produce an equivalent record.
     
     **Validates: Requirements 12.3**
@@ -586,7 +586,7 @@ def test_reverse_migration_round_trip_property(username, title, num_ingredients,
         mysql_session.close()
         mysql_engine.dispose()
         
-        # Step 2: Reverse migrate from MySQL to PostgreSQL/SQLite
+        # Step 2: Reverse migrate from MySQL to SQLite
         intermediate_engine = create_engine(intermediate_url)
         Base.metadata.create_all(bind=intermediate_engine)
         intermediate_engine.dispose()
@@ -601,7 +601,7 @@ def test_reverse_migration_round_trip_property(username, title, num_ingredients,
         reverse_migrator.migrate_all()
         reverse_migrator.disconnect()
         
-        # Step 3: Forward migrate from PostgreSQL/SQLite back to MySQL
+        # Step 3: Forward migrate from SQLite back to MySQL
         final_mysql_engine = create_engine(final_mysql_url)
         Base.metadata.create_all(bind=final_mysql_engine)
         final_mysql_engine.dispose()

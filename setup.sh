@@ -8,20 +8,14 @@ echo ""
 echo "Checking prerequisites..."
 command -v python3 >/dev/null 2>&1 || { echo "Python 3 is required but not installed. Aborting."; exit 1; }
 command -v node >/dev/null 2>&1 || { echo "Node.js is required but not installed. Aborting."; exit 1; }
-command -v psql >/dev/null 2>&1 || { echo "PostgreSQL is required but not installed. Aborting."; exit 1; }
 
 echo "✓ All prerequisites found"
 echo ""
 
 # Setup database
 echo "Setting up database..."
-echo "Please ensure PostgreSQL is running."
-read -p "Do you want to initialize the database? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    psql -U postgres -f database/init.sql
-    echo "✓ Database initialized"
-fi
+echo "Database will be initialized automatically on first run."
+echo "For MySQL, ensure Docker is running and use: docker-compose up -d"
 echo ""
 
 # Setup backend

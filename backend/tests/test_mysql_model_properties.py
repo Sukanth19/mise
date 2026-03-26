@@ -1,7 +1,6 @@
-"""
-Property-based tests for MySQL model compatibility.
+"""Property-based tests for MySQL model compatibility.
 
-Feature: mongodb-migration
+Tests for MySQL model auto-generation and uniqueness.
 """
 
 import pytest
@@ -46,7 +45,7 @@ def test_primary_key_auto_generation_user(db, username, password):
     For any model instance inserted into MySQL, the database should automatically
     assign a unique integer primary key.
     
-    Feature: mongodb-migration, Property 1: Primary Key Auto-Generation
+    Property 1: Primary Key Auto-Generation
     """
     # Create user without specifying ID
     user = User(username=username, password_hash=password)
@@ -83,7 +82,7 @@ def test_primary_key_auto_generation_recipe(db, username, password, title, ingre
     """
     For any Recipe instance inserted, the database should automatically assign a unique ID.
     
-    Feature: mongodb-migration, Property 1: Primary Key Auto-Generation
+    Property 1: Primary Key Auto-Generation
     """
     # Create user first (required for foreign key)
     user = User(username=username, password_hash=password)
@@ -129,7 +128,7 @@ def test_primary_key_auto_generation_collection(db, username, password, collecti
     """
     For any Collection instance inserted, the database should automatically assign a unique ID.
     
-    Feature: mongodb-migration, Property 1: Primary Key Auto-Generation
+    Property 1: Primary Key Auto-Generation
     """
     # Create user first
     user = User(username=username, password_hash=password)
@@ -160,7 +159,7 @@ def test_primary_key_uniqueness(db):
     """
     Verify that auto-generated primary keys are unique across multiple insertions.
     
-    Feature: mongodb-migration, Property 1: Primary Key Auto-Generation
+    Property 1: Primary Key Auto-Generation
     """
     import random
     ids = set()
@@ -194,7 +193,7 @@ def test_primary_key_sequential_generation(db, username1, username2, password):
     """
     Verify that auto-generated IDs are assigned in sequential order.
     
-    Feature: mongodb-migration, Property 1: Primary Key Auto-Generation
+    Property 1: Primary Key Auto-Generation
     """
     # Ensure usernames are different
     if username1 == username2:

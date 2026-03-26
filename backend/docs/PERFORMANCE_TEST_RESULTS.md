@@ -335,7 +335,7 @@ Tests Passed: 9/9
 ### Next Steps
 1. Run tests with actual MySQL instance
 2. Collect baseline performance metrics
-3. Compare with SQLite/PostgreSQL if needed
+3. Compare with SQLite if needed
 4. Optimize based on actual results
 5. Integrate into CI/CD pipeline
 

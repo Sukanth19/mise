@@ -1,7 +1,7 @@
-"""Repository layer for MongoDB data access.
+"""Repository layer for data access.
 
-This module provides repository classes that encapsulate MongoDB operations
-for each collection in the database. Repositories follow the repository pattern
+This module provides repository classes that encapsulate database operations
+for each entity in the database. Repositories follow the repository pattern
 to separate data access logic from business logic.
 """
 

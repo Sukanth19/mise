@@ -178,7 +178,7 @@ def valid_step_list():
 # PROPERTY 17: FOREIGN KEY CONSTRAINT ENFORCEMENT
 # ============================================================================
 
-# Feature: mongodb-migration, Property 17: Foreign Key Constraint Enforcement
+# Property 17: Foreign Key Constraint Enforcement
 @given(
     username=valid_username(),
     password=valid_password(),
@@ -262,7 +262,7 @@ def test_foreign_key_constraint_enforcement_property(
 # PROPERTY 18: TRANSACTION ROLLBACK ON ERROR
 # ============================================================================
 
-# Feature: mongodb-migration, Property 18: Transaction Rollback on Error
+# Property 18: Transaction Rollback on Error
 @given(
     username=valid_username(),
     password=valid_password(),
@@ -363,7 +363,7 @@ def test_transaction_rollback_on_error_property(
 # PROPERTY 19: CONSTRAINT VIOLATION ERROR DESCRIPTIVENESS
 # ============================================================================
 
-# Feature: mongodb-migration, Property 19: Constraint Violation Error Descriptiveness
+# Property 19: Constraint Violation Error Descriptiveness
 @given(
     username=valid_username(),
     password=valid_password(),
@@ -521,7 +521,7 @@ def test_constraint_violation_error_descriptiveness_property(
 # PROPERTY 20: MISSING RECORD ERROR HANDLING
 # ============================================================================
 
-# Feature: mongodb-migration, Property 20: Missing Record Error Handling
+# Property 20: Missing Record Error Handling
 @given(
     username=valid_username(),
     password=valid_password(),

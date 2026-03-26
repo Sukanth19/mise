@@ -163,7 +163,7 @@ The implementation follows the same patterns as existing services:
 The service integrates with:
 - **Models**: `NutritionFacts`, `DietaryLabel`, `AllergenWarning`, `Recipe`, `MealPlan`
 - **Schemas**: `NutritionCreate`, `NutritionUpdate`
-- **Database**: SQLAlchemy ORM with PostgreSQL/SQLite compatibility
+- **Database**: SQLAlchemy ORM with MySQL/SQLite compatibility
 
 ## Next Steps
 

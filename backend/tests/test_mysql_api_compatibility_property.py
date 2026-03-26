@@ -203,7 +203,7 @@ def valid_reference_link():
 # PROPERTY 14: API REQUEST-RESPONSE COMPATIBILITY
 # ============================================================================
 
-# Feature: mongodb-migration, Property 14: API Request-Response Compatibility
+# Property 14: API Request-Response Compatibility
 @given(
     username=valid_username(),
     password=valid_password(),
@@ -467,7 +467,7 @@ def test_mysql_api_request_response_compatibility_property(
 # PROPERTY 14 (VARIANT): API PAGINATION AND FILTERING
 # ============================================================================
 
-# Feature: mongodb-migration, Property 14: API Request-Response Compatibility (Pagination)
+# Property 14: API Request-Response Compatibility (Pagination)
 @given(
     username=valid_username(),
     password=valid_password(),
@@ -566,7 +566,7 @@ def test_mysql_api_pagination_compatibility_property(
 # PROPERTY 14 (VARIANT): API FILTERING AND SORTING
 # ============================================================================
 
-# Feature: mongodb-migration, Property 14: API Request-Response Compatibility (Filtering)
+# Property 14: API Request-Response Compatibility (Filtering)
 @given(
     username=valid_username(),
     password=valid_password(),

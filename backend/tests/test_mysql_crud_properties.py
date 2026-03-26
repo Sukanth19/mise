@@ -87,7 +87,7 @@ def test_user_insert_retrieve_round_trip(db, username, password):
     For any valid model instance, inserting it into MySQL and then retrieving 
     it by ID should return equivalent data.
     
-    Feature: mongodb-migration, Property 2: Insert-Retrieve Round Trip
+    Property 2: Insert-Retrieve Round Trip
     **Validates: Requirements 3.2**
     """
     # Insert
@@ -128,7 +128,7 @@ def test_recipe_insert_retrieve_round_trip(db, username, password, title, ingred
     """
     Property 2: Insert-Retrieve Round Trip for Recipe
     
-    Feature: mongodb-migration, Property 2: Insert-Retrieve Round Trip
+    Property 2: Insert-Retrieve Round Trip
     **Validates: Requirements 3.2**
     """
     # Create user first
@@ -181,7 +181,7 @@ def test_collection_insert_retrieve_round_trip(db, username, password, collectio
     """
     Property 2: Insert-Retrieve Round Trip for Collection
     
-    Feature: mongodb-migration, Property 2: Insert-Retrieve Round Trip
+    Property 2: Insert-Retrieve Round Trip
     **Validates: Requirements 3.2**
     """
     # Create user first
@@ -238,7 +238,7 @@ def test_user_update_retrieve_round_trip(db, username1, username2, password1, pa
     For any existing record and valid update data, updating the record and 
     then retrieving it should reflect all changes.
     
-    Feature: mongodb-migration, Property 3: Update-Retrieve Round Trip
+    Property 3: Update-Retrieve Round Trip
     **Validates: Requirements 3.3**
     """
     # Ensure usernames are different
@@ -287,7 +287,7 @@ def test_recipe_update_retrieve_round_trip(db, username, password, title1, title
     """
     Property 3: Update-Retrieve Round Trip for Recipe
     
-    Feature: mongodb-migration, Property 3: Update-Retrieve Round Trip
+    Property 3: Update-Retrieve Round Trip
     **Validates: Requirements 3.3**
     """
     # Create user first
@@ -342,7 +342,7 @@ def test_rating_update_retrieve_round_trip(db, username, password, rating1, rati
     """
     Property 3: Update-Retrieve Round Trip for RecipeRating
     
-    Feature: mongodb-migration, Property 3: Update-Retrieve Round Trip
+    Property 3: Update-Retrieve Round Trip
     **Validates: Requirements 3.3**
     """
     # Create user and recipe first
@@ -406,7 +406,7 @@ def test_user_delete_removes_record(db, username, password):
     For any existing record, deleting it should result in the record no longer 
     being retrievable.
     
-    Feature: mongodb-migration, Property 4: Delete Removes Record
+    Property 4: Delete Removes Record
     **Validates: Requirements 3.4**
     """
     # Insert user
@@ -446,7 +446,7 @@ def test_recipe_delete_removes_record(db, username, password, title):
     """
     Property 4: Delete Removes Record for Recipe
     
-    Feature: mongodb-migration, Property 4: Delete Removes Record
+    Property 4: Delete Removes Record
     **Validates: Requirements 3.4**
     """
     # Create user first
@@ -497,7 +497,7 @@ def test_collection_delete_removes_record(db, username, password, collection_nam
     """
     Property 4: Delete Removes Record for Collection
     
-    Feature: mongodb-migration, Property 4: Delete Removes Record
+    Property 4: Delete Removes Record
     **Validates: Requirements 3.4**
     """
     # Create user first
@@ -546,7 +546,7 @@ def test_note_delete_removes_record(db, username, password, note_text):
     """
     Property 4: Delete Removes Record for RecipeNote
     
-    Feature: mongodb-migration, Property 4: Delete Removes Record
+    Property 4: Delete Removes Record
     **Validates: Requirements 3.4**
     """
     # Create user and recipe first
@@ -606,7 +606,7 @@ def test_dietary_label_delete_removes_record(db, username, password, label):
     """
     Property 4: Delete Removes Record for DietaryLabel
     
-    Feature: mongodb-migration, Property 4: Delete Removes Record
+    Property 4: Delete Removes Record
     **Validates: Requirements 3.4**
     """
     # Create user and recipe first
