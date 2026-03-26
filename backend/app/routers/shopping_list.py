@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List
-from app.database import get_db
+from app.database import mongodb
 from app.schemas import (
     ShoppingListCreate,
     ShoppingListResponse,
@@ -11,12 +11,17 @@ from app.schemas import (
 )
 from app.services.shopping_list_service import ShoppingListGenerator
 from app.services.auth_service import AuthService
-from app.models import ShoppingListItem
+from app.utils.objectid_utils import validate_objectid
 
 router = APIRouter(prefix="/api/shopping-lists", tags=["shopping-lists"])
 
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
+async def get_mongodb() -> AsyncIOMotorDatabase:
+    """Get MongoDB database instance."""
+    return await mongodb.get_database()
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -43,10 +48,10 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
 # ============================================================================
 
 @router.post("", response_model=ShoppingListResponse, status_code=status.HTTP_201_CREATED)
-def create_shopping_list(
+async def create_shopping_list(
     shopping_list_data: ShoppingListCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Create a new shopping list from recipes or meal plan date range.
@@ -92,9 +97,9 @@ def create_shopping_list(
 
 
 @router.get("", response_model=List[ShoppingListResponse])
-def get_shopping_lists(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def get_shopping_lists(
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Get all shopping lists for the authenticated user.
@@ -137,15 +142,17 @@ def get_shopping_lists(
 
 
 @router.get("/{list_id}", response_model=ShoppingListResponse)
-def get_shopping_list(
-    list_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def get_shopping_list(
+    list_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Get a specific shopping list with items.
     Requirements: 18.1, 18.2
     """
+    # Validate ObjectId
+    validate_objectid(list_id, "list_id")
     shopping_list = ShoppingListGenerator.get_shopping_list_by_id(db, list_id, user_id)
     
     if not shopping_list:
@@ -186,15 +193,17 @@ def get_shopping_list(
 
 
 @router.delete("/{list_id}", status_code=status.HTTP_200_OK)
-def delete_shopping_list(
-    list_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def delete_shopping_list(
+    list_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Delete a shopping list.
     Requirements: 18.1, 18.2
     """
+    # Validate ObjectId
+    validate_objectid(list_id, "list_id")
     success = ShoppingListGenerator.delete_shopping_list(db, list_id, user_id)
     
     if not success:
@@ -212,17 +221,20 @@ def delete_shopping_list(
 # ============================================================================
 
 @router.patch("/{list_id}/items/{item_id}", response_model=ShoppingListItemResponse)
-def update_item(
-    list_id: int,
-    item_id: int,
+async def update_item(
+    list_id: str,
+    item_id: str,
     update_data: ItemUpdateRequest,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Update a shopping list item (check/uncheck).
     Requirements: 21.1, 21.2
     """
+    # Validate ObjectIds
+    validate_objectid(list_id, "list_id")
+    validate_objectid(item_id, "item_id")
     item = ShoppingListGenerator.update_item_status(db, item_id, update_data.is_checked, user_id)
     
     if not item:
@@ -246,16 +258,18 @@ def update_item(
 
 
 @router.post("/{list_id}/items", response_model=ShoppingListItemResponse, status_code=status.HTTP_201_CREATED)
-def add_custom_item(
-    list_id: int,
+async def add_custom_item(
+    list_id: str,
     item_data: CustomItemCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Add a custom item to a shopping list.
     Requirements: 22.1, 22.3
     """
+    # Validate ObjectId
+    validate_objectid(list_id, "list_id")
     item = ShoppingListGenerator.add_custom_item(db, list_id, item_data, user_id)
     
     if not item:
@@ -279,16 +293,19 @@ def add_custom_item(
 
 
 @router.delete("/{list_id}/items/{item_id}", status_code=status.HTTP_200_OK)
-def delete_item(
-    list_id: int,
-    item_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def delete_item(
+    list_id: str,
+    item_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Delete a shopping list item.
     Requirements: 22.1, 22.3
     """
+    # Validate ObjectIds
+    validate_objectid(list_id, "list_id")
+    validate_objectid(item_id, "item_id")
     success = ShoppingListGenerator.delete_item(db, item_id, user_id)
     
     if not success:
@@ -306,15 +323,17 @@ def delete_item(
 # ============================================================================
 
 @router.post("/{list_id}/share")
-def share_shopping_list(
-    list_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def share_shopping_list(
+    list_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Generate a share link for a shopping list.
     Requirements: 23.1
     """
+    # Validate ObjectId
+    validate_objectid(list_id, "list_id")
     share_token = ShoppingListGenerator.generate_share_token(db, list_id, user_id)
     
     if not share_token:
@@ -334,9 +353,9 @@ def share_shopping_list(
 
 
 @router.get("/shared/{share_token}", response_model=ShoppingListResponse)
-def get_shared_list(
+async def get_shared_list(
     share_token: str,
-    db: Session = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Access a shared shopping list (no authentication required).
@@ -382,16 +401,18 @@ def get_shared_list(
 
 
 @router.patch("/shared/{share_token}/items/{item_id}", response_model=ShoppingListItemResponse)
-def update_shared_item(
+async def update_shared_item(
     share_token: str,
-    item_id: int,
+    item_id: str,
     update_data: ItemUpdateRequest,
-    db: Session = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Update an item in a shared shopping list (no authentication required).
     Requirements: 23.3
     """
+    # Validate ObjectId
+    validate_objectid(item_id, "item_id")
     item = ShoppingListGenerator.update_shared_item_status(db, share_token, item_id, update_data.is_checked)
     
     if not item:

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, getToken } from '@/lib/api';
 import { Recipe, Collection } from '@/types';
@@ -111,15 +111,15 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSearch = (query: string) => {
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     fetchRecipes(query.trim() === '' ? undefined : query, filters);
-  };
+  }, [filters]);
 
-  const handleFilterChange = (newFilters: FilterOptions) => {
+  const handleFilterChange = useCallback((newFilters: FilterOptions) => {
     setFilters(newFilters);
     fetchRecipes(searchQuery.trim() === '' ? undefined : searchQuery, newFilters);
-  };
+  }, [searchQuery]);
 
   const handleCreateRecipe = () => {
     router.push('/recipes/new');

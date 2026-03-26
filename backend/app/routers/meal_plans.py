@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Response
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Optional
 from datetime import datetime, date
-from app.database import get_db
+from app.database import mongodb
 from app.schemas import (
     MealPlanCreate, 
     MealPlanUpdate, 
@@ -13,13 +13,18 @@ from app.schemas import (
 )
 from app.services.meal_plan_service import MealPlanner
 from app.services.auth_service import AuthService
-from app.models import MealPlanTemplateItem
+from app.utils.objectid_utils import validate_objectid
 
 router = APIRouter(prefix="/api/meal-plans", tags=["meal-plans"])
 template_router = APIRouter(prefix="/api/meal-plan-templates", tags=["meal-plan-templates"])
 
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
+async def get_mongodb() -> AsyncIOMotorDatabase:
+    """Get MongoDB database instance."""
+    return await mongodb.get_database()
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -46,10 +51,10 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
 # ============================================================================
 
 @router.post("", response_model=MealPlanResponse, status_code=status.HTTP_201_CREATED)
-def create_meal_plan(
+async def create_meal_plan(
     meal_plan_data: MealPlanCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Create a new meal plan entry."""
     meal_plan = MealPlanner.create_meal_plan(db, user_id, meal_plan_data)
@@ -73,11 +78,11 @@ def create_meal_plan(
 
 
 @router.get("", response_model=List[MealPlanResponse])
-def get_meal_plans(
+async def get_meal_plans(
     start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
     end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Get meal plans for a date range."""
     try:
@@ -107,13 +112,15 @@ def get_meal_plans(
 
 
 @router.put("/{meal_plan_id}", response_model=MealPlanResponse)
-def update_meal_plan(
-    meal_plan_id: int,
+async def update_meal_plan(
+    meal_plan_id: str,
     meal_plan_data: MealPlanUpdate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Update an existing meal plan (for drag-and-drop)."""
+    # Validate ObjectId
+    validate_objectid(meal_plan_id, "meal_plan_id")
     meal_plan = MealPlanner.update_meal_plan(db, meal_plan_id, user_id, meal_plan_data)
     
     if not meal_plan:
@@ -135,12 +142,14 @@ def update_meal_plan(
 
 
 @router.delete("/{meal_plan_id}", status_code=status.HTTP_200_OK)
-def delete_meal_plan(
-    meal_plan_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def delete_meal_plan(
+    meal_plan_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Delete a meal plan entry."""
+    # Validate ObjectId
+    validate_objectid(meal_plan_id, "meal_plan_id")
     success = MealPlanner.delete_meal_plan(db, meal_plan_id, user_id)
     
     if not success:
@@ -158,10 +167,10 @@ def delete_meal_plan(
 # ============================================================================
 
 @template_router.post("", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
-def create_template(
+async def create_template(
     template_data: TemplateCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Create a new meal plan template."""
     template = MealPlanner.create_template(db, user_id, template_data)
@@ -200,9 +209,9 @@ def create_template(
 
 
 @template_router.get("", response_model=List[TemplateResponse])
-def get_templates(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def get_templates(
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Get all meal plan templates for the authenticated user."""
     templates = MealPlanner.get_user_templates(db, user_id)
@@ -238,13 +247,15 @@ def get_templates(
 
 
 @template_router.post("/{template_id}/apply")
-def apply_template(
-    template_id: int,
+async def apply_template(
+    template_id: str,
     start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Apply a meal plan template to a date range."""
+    # Validate ObjectId
+    validate_objectid(template_id, "template_id")
     try:
         start = datetime.strptime(start_date, '%Y-%m-%d').date()
     except ValueError:
@@ -267,12 +278,14 @@ def apply_template(
 
 
 @template_router.delete("/{template_id}", status_code=status.HTTP_200_OK)
-def delete_template(
-    template_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def delete_template(
+    template_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Delete a meal plan template."""
+    # Validate ObjectId
+    validate_objectid(template_id, "template_id")
     success = MealPlanner.delete_template(db, template_id, user_id)
     
     if not success:
@@ -290,11 +303,11 @@ def delete_template(
 # ============================================================================
 
 @router.get("/export")
-def export_meal_plans(
+async def export_meal_plans(
     start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
     end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Export meal plans to iCal format."""
     try:

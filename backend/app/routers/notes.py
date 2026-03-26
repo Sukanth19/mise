@@ -1,15 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List
-from app.database import get_db
+from app.database import mongodb
 from app.schemas import NoteCreate, NoteResponse
-from app.models import RecipeNote, Recipe
 from app.services.auth_service import AuthService
+from app.utils.objectid_utils import validate_objectid
 
 router = APIRouter(prefix="/api/recipes", tags=["notes"])
 
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
+async def get_mongodb() -> AsyncIOMotorDatabase:
+    """Get MongoDB database instance."""
+    return await mongodb.get_database()
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -32,13 +37,15 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
 
 
 @router.post("/{recipe_id}/notes", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
-def create_note(
-    recipe_id: int,
+async def create_note(
+    recipe_id: str,
     note_data: NoteCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Create a new note for a recipe."""
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     # Check if recipe exists
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if not recipe:
@@ -63,12 +70,14 @@ def create_note(
 
 
 @router.get("/{recipe_id}/notes", response_model=List[NoteResponse])
-def get_notes(
-    recipe_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def get_notes(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Get all notes for a recipe, ordered by created_at."""
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     # Check if recipe exists
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if not recipe:
@@ -87,13 +96,16 @@ def get_notes(
 
 
 @router.delete("/{recipe_id}/notes/{note_id}", status_code=status.HTTP_200_OK)
-def delete_note(
-    recipe_id: int,
-    note_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def delete_note(
+    recipe_id: str,
+    note_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Delete a note."""
+    # Validate ObjectIds
+    validate_objectid(recipe_id, "recipe_id")
+    validate_objectid(note_id, "note_id")
     # Get the note
     note = db.query(RecipeNote).filter(
         RecipeNote.id == note_id,

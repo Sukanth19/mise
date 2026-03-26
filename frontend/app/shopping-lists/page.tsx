@@ -27,16 +27,18 @@ export default function ShoppingListsPage() {
     }
 
     fetchShoppingLists();
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchShoppingLists = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await apiClient<{ shopping_lists: ShoppingList[] }>('/api/shopping-lists');
-      setShoppingLists(data.shopping_lists);
+      setShoppingLists(data.shopping_lists || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch shopping lists');
+      setShoppingLists([]);
     } finally {
       setLoading(false);
     }
@@ -108,7 +110,7 @@ export default function ShoppingListsPage() {
           </div>
         )}
 
-        {!loading && shoppingLists.length === 0 && (
+        {!loading && shoppingLists && shoppingLists.length === 0 && (
           <EmptyState
             icon={<ShoppingCart size={64} strokeWidth={3} />}
             message="No shopping lists yet"
@@ -120,7 +122,7 @@ export default function ShoppingListsPage() {
           />
         )}
 
-        {!loading && shoppingLists.length > 0 && (
+        {!loading && shoppingLists && shoppingLists.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {shoppingLists.map((list, index) => (
               <ShoppingListCard

@@ -1,7 +1,9 @@
-from sqlalchemy.orm import Session
-from typing import List, Optional, Tuple
+from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta
-from app.models import MealPlan, MealPlanTemplate, MealPlanTemplateItem, Recipe
+from bson import ObjectId
+from app.repositories.meal_plan_repository import MealPlanRepository
+from app.repositories.meal_plan_template_repository import MealPlanTemplateRepository
+from app.repositories.recipe_repository import RecipeRepository
 from app.schemas import MealPlanCreate, MealPlanUpdate, TemplateCreate
 
 
@@ -11,29 +13,49 @@ class MealPlanner:
     # Valid meal time values
     VALID_MEAL_TIMES = {'breakfast', 'lunch', 'dinner', 'snack'}
     
+    def __init__(
+        self,
+        meal_plan_repository: MealPlanRepository,
+        template_repository: MealPlanTemplateRepository,
+        recipe_repository: RecipeRepository
+    ):
+        """
+        Initialize meal planner with repositories.
+        
+        Args:
+            meal_plan_repository: MealPlanRepository instance for data access
+            template_repository: MealPlanTemplateRepository instance for template data access
+            recipe_repository: RecipeRepository instance for recipe validation
+        """
+        self.meal_plan_repository = meal_plan_repository
+        self.template_repository = template_repository
+        self.recipe_repository = recipe_repository
+    
     @staticmethod
     def validate_meal_time(meal_time: str) -> bool:
         """Validate that meal_time is one of the allowed values."""
         return meal_time in MealPlanner.VALID_MEAL_TIMES
     
-    @staticmethod
-    def create_meal_plan(db: Session, user_id: int, meal_plan_data: MealPlanCreate) -> Optional[MealPlan]:
+    async def create_meal_plan(self, user_id: str, meal_plan_data: MealPlanCreate) -> Optional[Dict[str, Any]]:
         """
         Create a new meal plan entry.
         Validates meal_time and recipe existence.
-        Returns None if validation fails.
+        
+        Args:
+            user_id: User's ObjectId as string
+            meal_plan_data: Meal plan creation data
+            
+        Returns:
+            Meal plan document if successful, None if validation fails
         """
         # Validate meal_time
         if not MealPlanner.validate_meal_time(meal_plan_data.meal_time):
             return None
         
         # Verify recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == meal_plan_data.recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe = await self.recipe_repository.find_by_id(meal_plan_data.recipe_id)
         
-        if not recipe:
+        if not recipe or str(recipe["user_id"]) != user_id:
             return None
         
         # Parse meal_date string to date object
@@ -43,55 +65,63 @@ class MealPlanner:
             return None
         
         # Create meal plan
-        meal_plan = MealPlan(
-            user_id=user_id,
-            recipe_id=meal_plan_data.recipe_id,
-            meal_date=meal_date,
-            meal_time=meal_plan_data.meal_time
-        )
-        db.add(meal_plan)
-        db.commit()
-        db.refresh(meal_plan)
-        return meal_plan
+        meal_plan_doc = {
+            "user_id": ObjectId(user_id),
+            "recipe_id": ObjectId(meal_plan_data.recipe_id),
+            "meal_date": meal_date,
+            "meal_time": meal_plan_data.meal_time,
+            "created_at": datetime.utcnow()
+        }
+        meal_plan_id = await self.meal_plan_repository.create(meal_plan_doc)
+        return await self.meal_plan_repository.find_by_id(meal_plan_id)
     
-    @staticmethod
-    def get_meal_plans(db: Session, user_id: int, start_date: date, end_date: date) -> List[MealPlan]:
+    async def get_meal_plans(self, user_id: str, start_date: date, end_date: date) -> List[Dict[str, Any]]:
         """
         Get all meal plans for a user within a date range.
         Returns meal plans ordered by date and meal time.
+        
+        Args:
+            user_id: User's ObjectId as string
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+            
+        Returns:
+            List of meal plan documents
         """
-        return db.query(MealPlan).filter(
-            MealPlan.user_id == user_id,
-            MealPlan.meal_date >= start_date,
-            MealPlan.meal_date <= end_date
-        ).order_by(MealPlan.meal_date, MealPlan.meal_time).all()
+        return await self.meal_plan_repository.find_by_user_and_date_range(user_id, start_date, end_date)
     
-    @staticmethod
-    def update_meal_plan(
-        db: Session, 
-        meal_plan_id: int, 
-        user_id: int, 
+    async def update_meal_plan(
+        self, 
+        meal_plan_id: str, 
+        user_id: str, 
         meal_plan_data: MealPlanUpdate
-    ) -> Optional[MealPlan]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Update an existing meal plan.
         Validates user ownership and meal_time if provided.
-        Returns None if meal plan doesn't exist or validation fails.
+        
+        Args:
+            meal_plan_id: Meal plan's ObjectId as string
+            user_id: User's ObjectId as string
+            meal_plan_data: Meal plan update data
+            
+        Returns:
+            Updated meal plan document if successful, None if not found or validation fails
         """
         # Find meal plan and verify ownership
-        meal_plan = db.query(MealPlan).filter(
-            MealPlan.id == meal_plan_id,
-            MealPlan.user_id == user_id
-        ).first()
+        meal_plan = await self.meal_plan_repository.find_by_id(meal_plan_id)
         
-        if not meal_plan:
+        if not meal_plan or str(meal_plan["user_id"]) != user_id:
             return None
+        
+        # Build update document
+        update_doc = {}
         
         # Update meal_date if provided
         if meal_plan_data.meal_date is not None:
             try:
                 meal_date = datetime.strptime(meal_plan_data.meal_date, '%Y-%m-%d').date()
-                meal_plan.meal_date = meal_date
+                update_doc["meal_date"] = meal_date
             except ValueError:
                 return None
         
@@ -99,153 +129,165 @@ class MealPlanner:
         if meal_plan_data.meal_time is not None:
             if not MealPlanner.validate_meal_time(meal_plan_data.meal_time):
                 return None
-            meal_plan.meal_time = meal_plan_data.meal_time
+            update_doc["meal_time"] = meal_plan_data.meal_time
         
-        db.commit()
-        db.refresh(meal_plan)
-        return meal_plan
+        if update_doc:
+            await self.meal_plan_repository.update(meal_plan_id, update_doc)
+        
+        return await self.meal_plan_repository.find_by_id(meal_plan_id)
     
-    @staticmethod
-    def delete_meal_plan(db: Session, meal_plan_id: int, user_id: int) -> bool:
+    async def delete_meal_plan(self, meal_plan_id: str, user_id: str) -> bool:
         """
         Delete a meal plan.
         Validates user ownership.
-        Returns True if deleted, False if not found.
-        """
-        meal_plan = db.query(MealPlan).filter(
-            MealPlan.id == meal_plan_id,
-            MealPlan.user_id == user_id
-        ).first()
         
-        if not meal_plan:
+        Args:
+            meal_plan_id: Meal plan's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        meal_plan = await self.meal_plan_repository.find_by_id(meal_plan_id)
+        
+        if not meal_plan or str(meal_plan["user_id"]) != user_id:
             return False
         
-        db.delete(meal_plan)
-        db.commit()
-        return True
+        return await self.meal_plan_repository.delete(meal_plan_id)
     
-    @staticmethod
-    def create_template(db: Session, user_id: int, template_data: TemplateCreate) -> Optional[MealPlanTemplate]:
+    async def create_template(self, user_id: str, template_data: TemplateCreate) -> Optional[Dict[str, Any]]:
         """
-        Create a new meal plan template with items.
+        Create a new meal plan template with embedded items.
         Validates all template items before creation.
-        Returns None if validation fails.
+        
+        Args:
+            user_id: User's ObjectId as string
+            template_data: Template creation data with items
+            
+        Returns:
+            Template document if successful, None if validation fails
         """
         # Validate all template items
+        items = []
         for item in template_data.items:
             # Validate meal_time
             if not MealPlanner.validate_meal_time(item.meal_time):
                 return None
             
             # Verify recipe exists and belongs to user
-            recipe = db.query(Recipe).filter(
-                Recipe.id == item.recipe_id,
-                Recipe.user_id == user_id
-            ).first()
+            recipe = await self.recipe_repository.find_by_id(item.recipe_id)
             
-            if not recipe:
+            if not recipe or str(recipe["user_id"]) != user_id:
                 return None
+            
+            items.append({
+                "recipe_id": ObjectId(item.recipe_id),
+                "day_offset": item.day_offset,
+                "meal_time": item.meal_time
+            })
         
-        # Create template
-        template = MealPlanTemplate(
-            user_id=user_id,
-            name=template_data.name,
-            description=template_data.description
-        )
-        db.add(template)
-        db.flush()  # Get template ID without committing
-        
-        # Create template items
-        for item in template_data.items:
-            template_item = MealPlanTemplateItem(
-                template_id=template.id,
-                recipe_id=item.recipe_id,
-                day_offset=item.day_offset,
-                meal_time=item.meal_time
-            )
-            db.add(template_item)
-        
-        db.commit()
-        db.refresh(template)
-        return template
+        # Create template with embedded items
+        template_doc = {
+            "user_id": ObjectId(user_id),
+            "name": template_data.name,
+            "description": template_data.description,
+            "items": items,
+            "created_at": datetime.utcnow()
+        }
+        template_id = await self.template_repository.create(template_doc)
+        return await self.template_repository.find_by_id(template_id)
     
-    @staticmethod
-    def get_user_templates(db: Session, user_id: int) -> List[MealPlanTemplate]:
-        """Get all meal plan templates for a user."""
-        return db.query(MealPlanTemplate).filter(
-            MealPlanTemplate.user_id == user_id
-        ).all()
+    async def get_user_templates(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all meal plan templates for a user.
+        
+        Args:
+            user_id: User's ObjectId as string
+            
+        Returns:
+            List of template documents
+        """
+        return await self.template_repository.find_by_user(user_id)
     
-    @staticmethod
-    def apply_template(
-        db: Session, 
-        template_id: int, 
-        user_id: int, 
+    async def apply_template(
+        self, 
+        template_id: str, 
+        user_id: str, 
         start_date: date
     ) -> Optional[int]:
         """
         Apply a meal plan template starting from a specific date.
         Creates meal plan entries for all template items with date offset.
-        Returns count of meal plans created, or None if template not found.
+        
+        Args:
+            template_id: Template's ObjectId as string
+            user_id: User's ObjectId as string
+            start_date: Starting date for the meal plan
+            
+        Returns:
+            Count of meal plans created, or None if template not found
         """
         # Verify template exists and belongs to user
-        template = db.query(MealPlanTemplate).filter(
-            MealPlanTemplate.id == template_id,
-            MealPlanTemplate.user_id == user_id
-        ).first()
+        template = await self.template_repository.find_by_id(template_id)
         
-        if not template:
+        if not template or str(template["user_id"]) != user_id:
             return None
         
-        # Get template items
-        template_items = db.query(MealPlanTemplateItem).filter(
-            MealPlanTemplateItem.template_id == template_id
-        ).all()
+        # Get template items (embedded in the template document)
+        template_items = template.get("items", [])
         
         created_count = 0
         
         # Create meal plans from template items
         for item in template_items:
-            meal_date = start_date + timedelta(days=item.day_offset)
+            meal_date = start_date + timedelta(days=item["day_offset"])
             
-            meal_plan = MealPlan(
-                user_id=user_id,
-                recipe_id=item.recipe_id,
-                meal_date=meal_date,
-                meal_time=item.meal_time
-            )
-            db.add(meal_plan)
+            meal_plan_doc = {
+                "user_id": ObjectId(user_id),
+                "recipe_id": item["recipe_id"],
+                "meal_date": meal_date,
+                "meal_time": item["meal_time"],
+                "created_at": datetime.utcnow()
+            }
+            await self.meal_plan_repository.create(meal_plan_doc)
             created_count += 1
         
-        db.commit()
         return created_count
     
-    @staticmethod
-    def delete_template(db: Session, template_id: int, user_id: int) -> bool:
+    async def delete_template(self, template_id: str, user_id: str) -> bool:
         """
         Delete a meal plan template.
         Validates user ownership.
-        Cascading delete will remove template items.
-        Returns True if deleted, False if not found.
-        """
-        template = db.query(MealPlanTemplate).filter(
-            MealPlanTemplate.id == template_id,
-            MealPlanTemplate.user_id == user_id
-        ).first()
         
-        if not template:
+        Args:
+            template_id: Template's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        template = await self.template_repository.find_by_id(template_id)
+        
+        if not template or str(template["user_id"]) != user_id:
             return False
         
-        db.delete(template)
-        db.commit()
-        return True
+        return await self.template_repository.delete(template_id)
     
-    @staticmethod
-    def export_to_ical(db: Session, user_id: int, start_date: date, end_date: date) -> bytes:
+    async def export_to_ical(self, user_id: str, start_date: date, end_date: date) -> bytes:
         """
         Export meal plans to iCal format.
         Generates calendar events for each meal plan with 1-hour duration.
-        Returns iCal file content as bytes.
+        
+        Args:
+            user_id: User's ObjectId as string
+            start_date: Start date for export
+            end_date: End date for export
+            
+        Returns:
+            iCal file content as bytes
+            
+        Raises:
+            ImportError: If icalendar library is not installed
         """
         try:
             from icalendar import Calendar, Event
@@ -253,7 +295,7 @@ class MealPlanner:
             raise ImportError("icalendar library is required for iCal export. Install with: pip install icalendar")
         
         # Get meal plans for date range
-        meal_plans = MealPlanner.get_meal_plans(db, user_id, start_date, end_date)
+        meal_plans = await self.get_meal_plans(user_id, start_date, end_date)
         
         # Create calendar
         cal = Calendar()
@@ -271,18 +313,18 @@ class MealPlanner:
         # Create events for each meal plan
         for meal_plan in meal_plans:
             # Get recipe details
-            recipe = db.query(Recipe).filter(Recipe.id == meal_plan.recipe_id).first()
+            recipe = await self.recipe_repository.find_by_id(str(meal_plan["recipe_id"]))
             
             if not recipe:
                 continue
             
             event = Event()
-            event.add('summary', f"{meal_plan.meal_time.capitalize()}: {recipe.title}")
-            event.add('description', f"Meal: {meal_plan.meal_time}")
+            event.add('summary', f"{meal_plan['meal_time'].capitalize()}: {recipe['title']}")
+            event.add('description', f"Meal: {meal_plan['meal_time']}")
             
             # Set event time based on meal_time
-            hour = meal_time_hours.get(meal_plan.meal_time, 12)
-            start_datetime = datetime.combine(meal_plan.meal_date, datetime.min.time().replace(hour=hour))
+            hour = meal_time_hours.get(meal_plan['meal_time'], 12)
+            start_datetime = datetime.combine(meal_plan['meal_date'], datetime.min.time().replace(hour=hour))
             end_datetime = start_datetime + timedelta(hours=1)
             
             event.add('dtstart', start_datetime)

@@ -1,15 +1,16 @@
-from sqlalchemy.orm import Session
-from typing import List, Optional, Tuple
+from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 import secrets
 import re
-import json
-from app.models import ShoppingList, ShoppingListItem, Recipe, MealPlan
+from bson import ObjectId
+from app.repositories.shopping_list_repository import ShoppingListRepository
+from app.repositories.recipe_repository import RecipeRepository
+from app.repositories.meal_plan_repository import MealPlanRepository
 from app.schemas import ShoppingListCreate, CustomItemCreate
 
 
 class ShoppingListGenerator:
-    """Service for managing shopping lists and items."""
+    """Service for managing shopping lists with embedded items."""
     
     # Category keywords for ingredient categorization
     CATEGORY_KEYWORDS = {
@@ -52,16 +53,39 @@ class ShoppingListGenerator:
         ]
     }
     
-    @staticmethod
-    def create_shopping_list(
-        db: Session,
-        user_id: int,
+    def __init__(
+        self,
+        shopping_list_repository: ShoppingListRepository,
+        recipe_repository: RecipeRepository,
+        meal_plan_repository: MealPlanRepository
+    ):
+        """
+        Initialize shopping list generator with repositories.
+        
+        Args:
+            shopping_list_repository: ShoppingListRepository instance
+            recipe_repository: RecipeRepository instance
+            meal_plan_repository: MealPlanRepository instance
+        """
+        self.shopping_list_repository = shopping_list_repository
+        self.recipe_repository = recipe_repository
+        self.meal_plan_repository = meal_plan_repository
+    
+    async def create_shopping_list(
+        self,
+        user_id: str,
         shopping_list_data: ShoppingListCreate
-    ) -> Optional[ShoppingList]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Create a new shopping list from recipes or meal plan date range.
         Extracts ingredients, consolidates duplicates, and categorizes items.
-        Returns None if validation fails.
+        
+        Args:
+            user_id: User's ObjectId as string
+            shopping_list_data: Shopping list creation data
+            
+        Returns:
+            Shopping list document if successful, None if validation fails
         """
         recipe_ids = []
         
@@ -76,92 +100,95 @@ class ShoppingListGenerator:
             except ValueError:
                 return None
             
-            recipe_ids = ShoppingListGenerator.extract_ingredients_from_meal_plan(
-                db, user_id, start_date, end_date
+            recipe_ids = await self.extract_ingredients_from_meal_plan(
+                user_id, start_date, end_date
             )
         
         if not recipe_ids:
             return None
         
-        # Create shopping list
-        shopping_list = ShoppingList(
-            user_id=user_id,
-            name=shopping_list_data.name
-        )
-        db.add(shopping_list)
-        db.flush()  # Get shopping list ID
-        
         # Extract and consolidate ingredients
-        ingredients = ShoppingListGenerator.extract_ingredients_from_recipes(db, recipe_ids, user_id)
+        ingredients = await self.extract_ingredients_from_recipes(recipe_ids, user_id)
         consolidated_items = ShoppingListGenerator.consolidate_ingredients(ingredients)
         
-        # Create shopping list items
+        # Create shopping list items (embedded)
+        items = []
         for item_data in consolidated_items:
             category = ShoppingListGenerator.categorize_ingredient(item_data['ingredient_name'])
             
-            item = ShoppingListItem(
-                shopping_list_id=shopping_list.id,
-                ingredient_name=item_data['ingredient_name'],
-                quantity=item_data.get('quantity'),
-                category=category,
-                is_checked=False,
-                is_custom=False,
-                recipe_id=item_data.get('recipe_id')
-            )
-            db.add(item)
+            item = {
+                "ingredient_name": item_data['ingredient_name'],
+                "quantity": item_data.get('quantity'),
+                "category": category,
+                "is_checked": False,
+                "is_custom": False,
+                "recipe_id": ObjectId(item_data['recipe_id']) if item_data.get('recipe_id') else None
+            }
+            items.append(item)
         
-        db.commit()
-        db.refresh(shopping_list)
-        return shopping_list
+        # Create shopping list with embedded items
+        shopping_list_doc = {
+            "user_id": ObjectId(user_id),
+            "name": shopping_list_data.name,
+            "share_token": None,
+            "items": items,
+            "created_at": datetime.utcnow()
+        }
+        
+        list_id = await self.shopping_list_repository.create(shopping_list_doc)
+        return await self.shopping_list_repository.find_by_id(list_id)
     
-    @staticmethod
-    def extract_ingredients_from_meal_plan(
-        db: Session,
-        user_id: int,
+    async def extract_ingredients_from_meal_plan(
+        self,
+        user_id: str,
         start_date: date,
         end_date: date
-    ) -> List[int]:
+    ) -> List[str]:
         """
         Extract recipe IDs from meal plans within a date range.
-        Returns list of unique recipe IDs.
+        
+        Args:
+            user_id: User's ObjectId as string
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+            
+        Returns:
+            List of unique recipe ID strings
         """
-        meal_plans = db.query(MealPlan).filter(
-            MealPlan.user_id == user_id,
-            MealPlan.meal_date >= start_date,
-            MealPlan.meal_date <= end_date
-        ).all()
+        meal_plans = await self.meal_plan_repository.find_by_user_and_date_range(
+            user_id, start_date, end_date
+        )
         
         # Get unique recipe IDs
-        recipe_ids = list(set([mp.recipe_id for mp in meal_plans]))
+        recipe_ids = list(set([str(mp["recipe_id"]) for mp in meal_plans]))
         return recipe_ids
     
-    @staticmethod
-    def extract_ingredients_from_recipes(
-        db: Session,
-        recipe_ids: List[int],
-        user_id: int
+    async def extract_ingredients_from_recipes(
+        self,
+        recipe_ids: List[str],
+        user_id: str
     ) -> List[dict]:
         """
         Extract ingredients from multiple recipes.
-        Returns list of ingredient dictionaries with name, quantity, and recipe_id.
+        
+        Args:
+            recipe_ids: List of recipe ObjectId strings
+            user_id: User's ObjectId as string
+            
+        Returns:
+            List of ingredient dictionaries with name, quantity, and recipe_id
         """
         all_ingredients = []
         
         for recipe_id in recipe_ids:
             # Verify recipe exists and belongs to user
-            recipe = db.query(Recipe).filter(
-                Recipe.id == recipe_id,
-                Recipe.user_id == user_id
-            ).first()
+            recipe = await self.recipe_repository.find_by_id(recipe_id)
             
-            if not recipe:
+            if not recipe or str(recipe["user_id"]) != user_id:
                 continue
             
-            # Parse ingredients JSON
-            try:
-                ingredients = json.loads(recipe.ingredients)
-            except (json.JSONDecodeError, TypeError):
-                continue
+            # Get ingredients array (already parsed in MongoDB)
+            ingredients = recipe.get("ingredients", [])
             
             # Extract each ingredient
             for ingredient in ingredients:
@@ -202,7 +229,12 @@ class ShoppingListGenerator:
         """
         Consolidate duplicate ingredients (case-insensitive).
         Sum quantities when units match, otherwise list separately.
-        Returns list of consolidated ingredient dictionaries.
+        
+        Args:
+            ingredients: List of ingredient dictionaries
+            
+        Returns:
+            List of consolidated ingredient dictionaries
         """
         consolidated = {}
         
@@ -239,7 +271,13 @@ class ShoppingListGenerator:
     def sum_quantities(qty1: str, qty2: str) -> Optional[str]:
         """
         Attempt to sum two quantity strings if they have the same unit.
-        Returns summed quantity string or None if incompatible.
+        
+        Args:
+            qty1: First quantity string
+            qty2: Second quantity string
+            
+        Returns:
+            Summed quantity string or None if incompatible
         """
         # Extract number and unit from each quantity
         pattern = r'^([\d\.\s\/]+)\s*([a-zA-Z]+)?$'
@@ -314,94 +352,108 @@ class ShoppingListGenerator:
         
         return 'other'
     
-    @staticmethod
-    def get_user_shopping_lists(db: Session, user_id: int) -> List[ShoppingList]:
-        """Get all shopping lists for a user."""
-        return db.query(ShoppingList).filter(
-            ShoppingList.user_id == user_id
-        ).order_by(ShoppingList.created_at.desc()).all()
+    async def get_user_shopping_lists(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all shopping lists for a user.
+        
+        Args:
+            user_id: User's ObjectId as string
+            
+        Returns:
+            List of shopping list documents
+        """
+        return await self.shopping_list_repository.find_by_user(user_id)
     
-    @staticmethod
-    def get_shopping_list_by_id(
-        db: Session,
-        list_id: int,
-        user_id: int
-    ) -> Optional[ShoppingList]:
+    async def get_shopping_list_by_id(
+        self,
+        list_id: str,
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Get a shopping list by ID with ownership validation.
-        Returns None if not found or user doesn't own it.
+        
+        Args:
+            list_id: Shopping list's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Shopping list document if found and owned by user, None otherwise
         """
-        shopping_list = db.query(ShoppingList).filter(
-            ShoppingList.id == list_id,
-            ShoppingList.user_id == user_id
-        ).first()
+        shopping_list = await self.shopping_list_repository.find_by_id(list_id)
+        
+        if not shopping_list or str(shopping_list["user_id"]) != user_id:
+            return None
         
         return shopping_list
     
-    @staticmethod
-    def delete_shopping_list(db: Session, list_id: int, user_id: int) -> bool:
+    async def delete_shopping_list(self, list_id: str, user_id: str) -> bool:
         """
         Delete a shopping list with ownership validation.
-        Cascading delete will remove all items.
-        Returns True if deleted, False if not found.
+        
+        Args:
+            list_id: Shopping list's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            True if deleted, False if not found
         """
-        shopping_list = ShoppingListGenerator.get_shopping_list_by_id(db, list_id, user_id)
+        shopping_list = await self.get_shopping_list_by_id(list_id, user_id)
         
         if not shopping_list:
             return False
         
-        db.delete(shopping_list)
-        db.commit()
-        return True
+        return await self.shopping_list_repository.delete(list_id)
     
-    @staticmethod
-    def update_item_status(
-        db: Session,
-        item_id: int,
+    async def update_item_status(
+        self,
+        list_id: str,
+        item_index: int,
         is_checked: bool,
-        user_id: int
-    ) -> Optional[ShoppingListItem]:
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Update the checked status of a shopping list item.
-        Validates user ownership of the parent shopping list.
-        Returns None if item not found or access denied.
+        Validates user ownership of the shopping list.
+        
+        Args:
+            list_id: Shopping list's ObjectId as string
+            item_index: Index of the item in the items array
+            is_checked: New checked status
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Updated shopping list document if successful, None if not found or access denied
         """
-        # Get item and verify ownership through shopping list
-        item = db.query(ShoppingListItem).filter(
-            ShoppingListItem.id == item_id
-        ).first()
-        
-        if not item:
-            return None
-        
-        # Verify user owns the shopping list
-        shopping_list = db.query(ShoppingList).filter(
-            ShoppingList.id == item.shopping_list_id,
-            ShoppingList.user_id == user_id
-        ).first()
+        # Verify shopping list ownership
+        shopping_list = await self.get_shopping_list_by_id(list_id, user_id)
         
         if not shopping_list:
             return None
         
-        item.is_checked = is_checked
-        db.commit()
-        db.refresh(item)
-        return item
+        # Update the item
+        await self.shopping_list_repository.update_item_checked(list_id, item_index, is_checked)
+        return await self.shopping_list_repository.find_by_id(list_id)
     
-    @staticmethod
-    def add_custom_item(
-        db: Session,
-        list_id: int,
+    async def add_custom_item(
+        self,
+        list_id: str,
         item_data: CustomItemCreate,
-        user_id: int
-    ) -> Optional[ShoppingListItem]:
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Add a custom item to a shopping list.
         Validates user ownership of the shopping list.
-        Returns None if shopping list not found or access denied.
+        
+        Args:
+            list_id: Shopping list's ObjectId as string
+            item_data: Custom item data
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Updated shopping list document if successful, None if not found or access denied
         """
         # Verify shopping list ownership
-        shopping_list = ShoppingListGenerator.get_shopping_list_by_id(db, list_id, user_id)
+        shopping_list = await self.get_shopping_list_by_id(list_id, user_id)
         
         if not shopping_list:
             return None
@@ -410,55 +462,61 @@ class ShoppingListGenerator:
         category = item_data.category if item_data.category else ShoppingListGenerator.categorize_ingredient(item_data.ingredient_name)
         
         # Create custom item
-        item = ShoppingListItem(
-            shopping_list_id=list_id,
-            ingredient_name=item_data.ingredient_name,
-            quantity=item_data.quantity,
-            category=category,
-            is_checked=False,
-            is_custom=True,
-            recipe_id=None
-        )
-        db.add(item)
-        db.commit()
-        db.refresh(item)
-        return item
+        item = {
+            "ingredient_name": item_data.ingredient_name,
+            "quantity": item_data.quantity,
+            "category": category,
+            "is_checked": False,
+            "is_custom": True,
+            "recipe_id": None
+        }
+        
+        await self.shopping_list_repository.add_item(list_id, item)
+        return await self.shopping_list_repository.find_by_id(list_id)
     
-    @staticmethod
-    def delete_item(db: Session, item_id: int, user_id: int) -> bool:
+    async def delete_item(self, list_id: str, item_index: int, user_id: str) -> bool:
         """
-        Delete a shopping list item.
-        Validates user ownership through the parent shopping list.
-        Returns True if deleted, False if not found or access denied.
+        Delete a shopping list item by removing it from the items array.
+        Validates user ownership through the shopping list.
+        
+        Args:
+            list_id: Shopping list's ObjectId as string
+            item_index: Index of the item in the items array
+            user_id: User's ObjectId as string
+            
+        Returns:
+            True if deleted, False if not found or access denied
         """
-        # Get item and verify ownership through shopping list
-        item = db.query(ShoppingListItem).filter(
-            ShoppingListItem.id == item_id
-        ).first()
-        
-        if not item:
-            return False
-        
-        # Verify user owns the shopping list
-        shopping_list = db.query(ShoppingList).filter(
-            ShoppingList.id == item.shopping_list_id,
-            ShoppingList.user_id == user_id
-        ).first()
+        # Verify shopping list ownership
+        shopping_list = await self.get_shopping_list_by_id(list_id, user_id)
         
         if not shopping_list:
             return False
         
-        db.delete(item)
-        db.commit()
+        # Remove item from array by pulling it
+        items = shopping_list.get("items", [])
+        if item_index < 0 or item_index >= len(items):
+            return False
+        
+        # Remove the item at the index
+        items.pop(item_index)
+        
+        # Update the shopping list with the new items array
+        await self.shopping_list_repository.update(list_id, {"items": items})
         return True
     
-    @staticmethod
-    def generate_share_token(db: Session, list_id: int, user_id: int) -> Optional[str]:
+    async def generate_share_token(self, list_id: str, user_id: str) -> Optional[str]:
         """
         Generate a unique share token for a shopping list.
-        Returns the share token or None if shopping list not found.
+        
+        Args:
+            list_id: Shopping list's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Share token string if successful, None if shopping list not found
         """
-        shopping_list = ShoppingListGenerator.get_shopping_list_by_id(db, list_id, user_id)
+        shopping_list = await self.get_shopping_list_by_id(list_id, user_id)
         
         if not shopping_list:
             return None
@@ -467,54 +525,49 @@ class ShoppingListGenerator:
         share_token = secrets.token_urlsafe(32)
         
         # Ensure uniqueness (very unlikely to collide, but check anyway)
-        while db.query(ShoppingList).filter(ShoppingList.share_token == share_token).first():
+        while await self.shopping_list_repository.find_by_share_token(share_token):
             share_token = secrets.token_urlsafe(32)
         
-        shopping_list.share_token = share_token
-        db.commit()
-        db.refresh(shopping_list)
+        await self.shopping_list_repository.update(list_id, {"share_token": share_token})
         return share_token
     
-    @staticmethod
-    def get_shared_list(db: Session, share_token: str) -> Optional[ShoppingList]:
+    async def get_shared_list(self, share_token: str) -> Optional[Dict[str, Any]]:
         """
         Get a shopping list by its share token (public access, no auth required).
-        Returns None if token is invalid or shopping list not found.
-        """
-        shopping_list = db.query(ShoppingList).filter(
-            ShoppingList.share_token == share_token
-        ).first()
         
-        return shopping_list
+        Args:
+            share_token: Share token to search for
+            
+        Returns:
+            Shopping list document if found, None otherwise
+        """
+        return await self.shopping_list_repository.find_by_share_token(share_token)
     
-    @staticmethod
-    def update_shared_item_status(
-        db: Session,
+    async def update_shared_item_status(
+        self,
         share_token: str,
-        item_id: int,
+        item_index: int,
         is_checked: bool
-    ) -> Optional[ShoppingListItem]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Update item status via share token (public access).
         Allows anyone with the share token to check/uncheck items.
-        Returns None if share token invalid or item not found.
+        
+        Args:
+            share_token: Share token for the shopping list
+            item_index: Index of the item in the items array
+            is_checked: New checked status
+            
+        Returns:
+            Updated shopping list document if successful, None if share token invalid or item not found
         """
         # Verify share token is valid
-        shopping_list = ShoppingListGenerator.get_shared_list(db, share_token)
+        shopping_list = await self.get_shared_list(share_token)
         
         if not shopping_list:
             return None
         
-        # Get item and verify it belongs to this shopping list
-        item = db.query(ShoppingListItem).filter(
-            ShoppingListItem.id == item_id,
-            ShoppingListItem.shopping_list_id == shopping_list.id
-        ).first()
-        
-        if not item:
-            return None
-        
-        item.is_checked = is_checked
-        db.commit()
-        db.refresh(item)
-        return item
+        # Update the item
+        list_id = str(shopping_list["_id"])
+        await self.shopping_list_repository.update_item_checked(list_id, item_index, is_checked)
+        return await self.shopping_list_repository.find_by_id(list_id)

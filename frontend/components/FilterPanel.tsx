@@ -58,7 +58,8 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
       sortOrder,
     };
     onFilterChange(filters);
-  }, [favorites, minRating, selectedTags, selectedDietaryLabels, selectedAllergens, sortBy, sortOrder, onFilterChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [favorites, minRating, selectedTags, selectedDietaryLabels, selectedAllergens, sortBy, sortOrder]);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev =>

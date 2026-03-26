@@ -1,16 +1,98 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.database import engine, Base
+from app.database import engine, Base, health_check
 from app.routers import auth, recipes, images, ratings, notes, collections, meal_plans, shopping_list, nutrition, social
 from app.config import settings
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create database tables
 # Note: Commented out for testing with SQLite which doesn't support ARRAY types
 # Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Recipe Saver API")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Startup event handler - establish MySQL connection and verify connectivity.
+    
+    Logs connection events for MySQL operations.
+    
+    Validates: Requirements 1.4, 10.1
+    """
+    logger.info("Starting Recipe Saver API...")
+    
+    # Log MySQL connection attempt if using MySQL
+    if settings.database_url.startswith("mysql"):
+        from app.utils.mysql_logger import log_connection_event
+        log_connection_event("startup", "Attempting to connect to MySQL database", "info")
+    
+    # Verify database connectivity
+    try:
+        if health_check():
+            logger.info("Successfully connected to database")
+            
+            # Log successful MySQL connection
+            if settings.database_url.startswith("mysql"):
+                from app.utils.mysql_logger import log_connection_event
+                log_connection_event("startup_success", "MySQL database connection verified", "info")
+        else:
+            logger.error("Database health check failed")
+            
+            # Log MySQL connection failure
+            if settings.database_url.startswith("mysql"):
+                from app.utils.mysql_logger import log_connection_event
+                log_connection_event("startup_failed", "MySQL database health check failed", "error")
+            
+            raise RuntimeError("Failed to connect to database")
+    except Exception as e:
+        logger.error(f"Database connection error: {e}")
+        
+        # Log MySQL connection error
+        if settings.database_url.startswith("mysql"):
+            from app.utils.mysql_logger import log_error
+            log_error("connection", str(e), "startup")
+        
+        raise
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Shutdown event handler - close all MySQL connections gracefully.
+    
+    Logs disconnection events for MySQL operations.
+    
+    Validates: Requirements 1.5, 10.1
+    """
+    logger.info("Shutting down Recipe Saver API...")
+    
+    # Log MySQL disconnection attempt if using MySQL
+    if settings.database_url.startswith("mysql"):
+        from app.utils.mysql_logger import log_connection_event
+        log_connection_event("shutdown", "Closing MySQL database connections", "info")
+    
+    # Close database connections
+    try:
+        engine.dispose()
+        logger.info("Database connections closed successfully")
+        
+        # Log successful MySQL disconnection
+        if settings.database_url.startswith("mysql"):
+            from app.utils.mysql_logger import log_connection_event
+            log_connection_event("shutdown_success", "MySQL connections closed successfully", "info")
+    except Exception as e:
+        logger.error(f"Error closing database connections: {e}")
+        
+        # Log MySQL disconnection error
+        if settings.database_url.startswith("mysql"):
+            from app.utils.mysql_logger import log_error
+            log_error("disconnection", str(e), "shutdown")
 
 # Configure CORS
 app.add_middleware(
@@ -29,6 +111,7 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(social.router)  # Must be before recipes router to match /api/recipes/discover
 app.include_router(recipes.router)
 app.include_router(images.router)
 app.include_router(ratings.router)
@@ -38,9 +121,26 @@ app.include_router(meal_plans.router)
 app.include_router(meal_plans.template_router)
 app.include_router(shopping_list.router)
 app.include_router(nutrition.router)
-app.include_router(social.router)
 
 
 @app.get("/")
 def read_root():
     return {"message": "Recipe Saver API"}
+
+
+@app.get("/health")
+def health_check_endpoint():
+    """
+    Health check endpoint for MySQL connectivity.
+    
+    Returns:
+        dict: Health status with database connectivity information
+        
+    Validates: Requirements 1.4
+    """
+    db_healthy = health_check()
+    
+    return {
+        "status": "healthy" if db_healthy else "unhealthy",
+        "database": "connected" if db_healthy else "disconnected"
+    }

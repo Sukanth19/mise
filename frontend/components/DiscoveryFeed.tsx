@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import PublicRecipeCard from './PublicRecipeCard';
-import LoadingSkeleton from './LoadingSkeleton';
+import { RecipeGridSkeleton } from './LoadingSkeleton';
 import EmptyState from './EmptyState';
 
 interface PublicRecipe {
@@ -94,11 +94,7 @@ export default function DiscoveryFeed({ searchQuery = '' }: DiscoveryFeedProps) 
   const totalPages = Math.ceil(total / limit);
 
   if (loading && recipes.length === 0) {
-    return (
-      <div className="space-y-4">
-        <LoadingSkeleton variant="recipe-card" count={6} />
-      </div>
-    );
+    return <RecipeGridSkeleton count={6} />;
   }
 
   if (error) {
@@ -137,10 +133,12 @@ export default function DiscoveryFeed({ searchQuery = '' }: DiscoveryFeedProps) 
       {/* Recipe Grid */}
       {recipes.length === 0 ? (
         <EmptyState
-          icon="🔍"
+          icon={<span className="text-6xl">🔍</span>}
           message={search ? 'No recipes found matching your search' : 'No public recipes yet'}
-          actionText={search ? 'Clear search' : undefined}
-          onAction={search ? () => { setSearch(''); setPage(1); } : undefined}
+          action={search ? {
+            label: 'Clear search',
+            onClick: () => { setSearch(''); setPage(1); }
+          } : undefined}
         />
       ) : (
         <>

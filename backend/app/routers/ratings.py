@@ -1,14 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
-from sqlalchemy.orm import Session
-from app.database import get_db
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from app.database import mongodb
 from app.schemas import RatingCreate, RatingUpdate, RatingResponse
 from app.services.rating_service import RatingSystem
 from app.services.auth_service import AuthService
+from app.utils.objectid_utils import validate_objectid
 
 router = APIRouter(prefix="/api/recipes", tags=["ratings"])
 
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
+async def get_mongodb() -> AsyncIOMotorDatabase:
+    """Get MongoDB database instance."""
+    return await mongodb.get_database()
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -31,13 +37,15 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
 
 
 @router.post("/{recipe_id}/rating", response_model=RatingResponse, status_code=status.HTTP_201_CREATED)
-def create_rating(
-    recipe_id: int,
+async def create_rating(
+    recipe_id: str,
     rating_data: RatingCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Create a new rating for a recipe."""
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     rating = RatingSystem.add_rating(db, recipe_id, user_id, rating_data.rating)
     
     if not rating:
@@ -69,13 +77,15 @@ def create_rating(
 
 
 @router.put("/{recipe_id}/rating", response_model=RatingResponse)
-def update_rating(
-    recipe_id: int,
+async def update_rating(
+    recipe_id: str,
     rating_data: RatingUpdate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Update an existing rating for a recipe."""
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     rating = RatingSystem.update_rating(db, recipe_id, user_id, rating_data.rating)
     
     if not rating:
@@ -98,12 +108,14 @@ def update_rating(
 
 
 @router.get("/{recipe_id}/rating", response_model=RatingResponse)
-def get_rating(
-    recipe_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def get_rating(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Get the authenticated user's rating for a recipe."""
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     rating = RatingSystem.get_user_rating(db, recipe_id, user_id)
     
     if not rating:

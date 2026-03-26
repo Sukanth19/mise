@@ -53,7 +53,8 @@ export default function MealPlannerPage() {
     }
 
     fetchData();
-  }, [router, dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange]);
 
   const fetchData = async () => {
     try {
@@ -72,12 +73,15 @@ export default function MealPlannerPage() {
         ).catch(() => null), // Nutrition summary is optional
       ]);
       
-      setMealPlans(mealPlansData.meal_plans);
-      setRecipes(recipesData.recipes);
-      setTemplates(templatesData.templates);
+      setMealPlans(mealPlansData.meal_plans || []);
+      setRecipes(recipesData.recipes || []);
+      setTemplates(templatesData.templates || []);
       setNutritionSummary(nutritionData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
+      setMealPlans([]);
+      setRecipes([]);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -214,7 +218,7 @@ export default function MealPlannerPage() {
   };
 
   // Filter recipes based on search query
-  const filteredRecipes = recipes.filter(recipe =>
+  const filteredRecipes = (recipes || []).filter(recipe =>
     recipe.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -299,7 +303,7 @@ export default function MealPlannerPage() {
               type="button"
               onClick={handleExportICal}
               className="comic-button px-4 py-2 bg-accent text-accent-foreground flex items-center gap-2"
-              disabled={mealPlans.length === 0}
+              disabled={!mealPlans || mealPlans.length === 0}
             >
               <Download size={18} />
               EXPORT ICAL
@@ -472,7 +476,7 @@ export default function MealPlannerPage() {
 
           {/* Calendar */}
           <div className="flex-1">
-            {mealPlans.length === 0 && !loading ? (
+            {mealPlans && mealPlans.length === 0 && !loading ? (
               <EmptyState
                 icon={<Calendar size={64} strokeWidth={3} />}
                 message="NO MEAL PLANS YET"

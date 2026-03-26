@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Mise Recipe Saver</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Comic Sans MS', 'Comic Neue', cursive, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #FF8C00;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+            font-size: 1.8em;
+            margin: 30px 0 15px;
+            border-bottom: 3px solid #FF8C00;
+            padding-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 5px solid #FF8C00;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .step-number {
+            display: inline-block;
+            background: #FF8C00;
+            color: white;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1.5em;
+            margin-right: 15px;
+        }
+        .credentials {
+            background: #e3f2fd;
+            border: 3px solid #2196F3;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 1.2em;
+        }
+        .credentials strong {
+            color: #1976D2;
+        }
+        .button {
+            display: inline-block;
+            background: #FF8C00;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: scale(1.05);
+            background: #ff7700;
+        }
+        .success {
+            background: #d4edda;
+            border: 3px solid #28a745;
+            color: #155724;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 1.1em;
+        }
+        .recipe-list {
+            background: #fff3cd;
+            border: 3px solid #ffc107;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .recipe-list ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .recipe-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #ffc107;
+        }
+        .recipe-list li:before {
+            content: "🍳 ";
+            margin-right: 10px;
+        }
+        .center {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .emoji {
+            font-size: 3em;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍳 MISE</h1>
+        <p class="subtitle">Your Recipe Saver is Ready!</p>
+
+        <div class="success">
+            ✅ Backend is running<br>
+            ✅ Frontend is running<br>
+            ✅ 10 sample recipes loaded<br>
+            ✅ Everything is working!
+        </div>
+
+        <h2>How to Use Your Application</h2>
+
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Open the Application</strong><br>
+            Click the button below or go to: <code>http://localhost:3000</code>
+        </div>
+
+        <div class="center">
+            <a href="http://localhost:3000" class="button" target="_blank">
+                🚀 OPEN APPLICATION
+            </a>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Log In</strong><br>
+            Use these credentials to log in:
+        </div>
+
+        <div class="credentials">
+            <strong>Username:</strong> demo<br>
+            <strong>Password:</strong> demo1234
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>See Your Recipes!</strong><br>
+            After logging in, you'll see your dashboard with 10 sample recipes:
+        </div>
+
+        <div class="recipe-list">
+            <ul>
+                <li>Classic Margherita Pizza</li>
+                <li>Chicken Tikka Masala</li>
+                <li>Avocado Toast with Poached Egg</li>
+                <li>Beef Tacos</li>
+                <li>Caesar Salad</li>
+                <li>Chocolate Chip Cookies</li>
+                <li>Greek Salad</li>
+                <li>Pad Thai</li>
+                <li>Banana Bread</li>
+                <li>Caprese Salad</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <span class="step-number">4</span>
+            <strong>Create New Recipes</strong><br>
+            Click the orange "CREATE RECIPE" button in the top right corner to add your own recipes!
+        </div>
+
+        <h2>Why It Wasn't Working Before</h2>
+        <p style="padding: 20px; background: #f8f9fa; border-radius: 10px; margin: 20px 0;">
+            <strong>You weren't logged in!</strong> 🔐<br><br>
+            The application requires authentication to view and create recipes. 
+            Each user has their own private recipe collection. Once you log in with 
+            the demo account, everything will work perfectly!
+        </p>
+
+        <h2>Need Help?</h2>
+        <p style="padding: 20px; background: #f8f9fa; border-radius: 10px; margin: 20px 0;">
+            Check these files for more information:<br><br>
+            📄 <strong>QUICK_START.md</strong> - Simple getting started guide<br>
+            📄 <strong>TROUBLESHOOTING.md</strong> - Detailed troubleshooting<br>
+            📄 <strong>README.md</strong> - Full documentation
+        </p>
+
+        <div class="center">
+            <div class="emoji">🎉</div>
+            <h2 style="color: #28a745;">Enjoy Your Recipe Collection!</h2>
+            <a href="http://localhost:3000" class="button" target="_blank">
+                🚀 START USING THE APP
+            </a>
+        </div>
+    </div>
+</body>
+</html>

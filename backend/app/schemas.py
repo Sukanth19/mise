@@ -63,6 +63,9 @@ class RecipeResponse(BaseModel):
     reference_link: Optional[str]
     created_at: datetime
     updated_at: datetime
+    is_favorite: Optional[bool] = False
+    visibility: Optional[str] = 'private'
+    servings: Optional[int] = 1
 
     class Config:
         from_attributes = True
@@ -81,7 +84,10 @@ class RecipeResponse(BaseModel):
             'tags': json.loads(obj.tags) if obj.tags and isinstance(obj.tags, str) else obj.tags,
             'reference_link': obj.reference_link,
             'created_at': obj.created_at,
-            'updated_at': obj.updated_at
+            'updated_at': obj.updated_at,
+            'is_favorite': obj.is_favorite if hasattr(obj, 'is_favorite') else False,
+            'visibility': obj.visibility if hasattr(obj, 'visibility') else 'private',
+            'servings': obj.servings if hasattr(obj, 'servings') else 1
         }
         return cls(**data)
 
@@ -141,7 +147,7 @@ class CollectionCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     cover_image_url: Optional[str] = None
-    parent_collection_id: Optional[int] = None
+    parent_collection_id: Optional[str] = None  # Changed from int to str for MongoDB ObjectId
 
 
 class CollectionUpdate(BaseModel):

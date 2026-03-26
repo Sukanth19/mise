@@ -30,16 +30,18 @@ export default function CollectionsPage() {
     }
 
     fetchCollections();
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchCollections = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await apiClient<{ collections: Collection[] }>('/api/collections');
-      setCollections(data.collections);
+      setCollections(data.collections || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch collections');
+      setCollections([]);
     } finally {
       setLoading(false);
     }
@@ -138,7 +140,7 @@ export default function CollectionsPage() {
         )}
 
         {/* Empty State */}
-        {!loading && collections.length === 0 && (
+        {!loading && collections && collections.length === 0 && (
           <div className="text-center py-12">
             <div className="mb-6">
               <div className="text-8xl mb-4">📁</div>
@@ -158,7 +160,7 @@ export default function CollectionsPage() {
         )}
 
         {/* Collection Grid */}
-        {!loading && collections.length > 0 && (
+        {!loading && collections && collections.length > 0 && (
           <CollectionGrid 
             collections={collections} 
             onEdit={handleEdit}

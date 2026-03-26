@@ -1,196 +1,247 @@
-from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 import secrets
-from app.models import Collection, CollectionRecipe, Recipe
+from bson import ObjectId
+from app.repositories.collection_repository import CollectionRepository
+from app.repositories.recipe_repository import RecipeRepository
 from app.schemas import CollectionCreate, CollectionUpdate
 
 
 class CollectionManager:
     """Service for managing recipe collections."""
     
-    @staticmethod
-    def create_collection(db: Session, user_id: int, collection_data: CollectionCreate) -> Collection:
+    def __init__(self, collection_repository: CollectionRepository, recipe_repository: RecipeRepository):
+        """
+        Initialize collection manager with repositories.
+        
+        Args:
+            collection_repository: CollectionRepository instance for data access
+            recipe_repository: RecipeRepository instance for recipe validation
+        """
+        self.collection_repository = collection_repository
+        self.recipe_repository = recipe_repository
+    
+    async def create_collection(self, user_id: str, collection_data: CollectionCreate) -> Dict[str, Any]:
         """
         Create a new collection for a user.
         Validates nesting level if parent_collection_id is provided.
+        
+        Args:
+            user_id: User's ObjectId as string
+            collection_data: Collection creation data
+            
+        Returns:
+            Collection document
+            
+        Raises:
+            ValueError: If parent collection not found or nesting level exceeded
         """
         nesting_level = 0
         
         # Calculate nesting level if this is a nested collection
         if collection_data.parent_collection_id is not None:
-            parent = CollectionManager.get_collection_by_id(
-                db, collection_data.parent_collection_id, user_id
+            parent = await self.get_collection_by_id(
+                str(collection_data.parent_collection_id), user_id
             )
             if not parent:
                 raise ValueError("Parent collection not found")
             
-            nesting_level = parent.nesting_level + 1
+            nesting_level = parent["nesting_level"] + 1
             
             # Validate nesting level (max 3 levels)
             if not CollectionManager.validate_nesting_level(nesting_level):
                 raise ValueError("Maximum nesting level (3) exceeded")
         
-        collection = Collection(
-            user_id=user_id,
-            name=collection_data.name,
-            description=collection_data.description,
-            cover_image_url=collection_data.cover_image_url,
-            parent_collection_id=collection_data.parent_collection_id,
-            nesting_level=nesting_level
-        )
-        db.add(collection)
-        db.commit()
-        db.refresh(collection)
-        return collection
+        collection_doc = {
+            "user_id": ObjectId(user_id),
+            "name": collection_data.name,
+            "description": collection_data.description,
+            "cover_image_url": collection_data.cover_image_url,
+            "parent_collection_id": ObjectId(collection_data.parent_collection_id) if collection_data.parent_collection_id else None,
+            "nesting_level": nesting_level,
+            "recipe_ids": [],
+            "share_token": None,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        collection_id = await self.collection_repository.create(collection_doc)
+        return await self.collection_repository.find_by_id(collection_id)
     
-    @staticmethod
-    def get_user_collections(db: Session, user_id: int) -> List[Collection]:
-        """Get all collections belonging to a user."""
-        return db.query(Collection).filter(Collection.user_id == user_id).all()
+    async def get_user_collections(self, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all collections belonging to a user.
+        
+        Args:
+            user_id: User's ObjectId as string
+            
+        Returns:
+            List of collection documents
+        """
+        return await self.collection_repository.find_by_user(user_id)
     
-    @staticmethod
-    def get_collection_by_id(db: Session, collection_id: int, user_id: int) -> Optional[Collection]:
+    async def get_collection_by_id(self, collection_id: str, user_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a collection by ID with ownership validation.
-        Returns None if collection doesn't exist or user doesn't own it.
+        
+        Args:
+            collection_id: Collection's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Collection document if found and owned by user, None otherwise
         """
-        collection = db.query(Collection).filter(Collection.id == collection_id).first()
+        collection = await self.collection_repository.find_by_id(collection_id)
         if not collection:
             return None
         
         # Verify ownership
-        if collection.user_id != user_id:
+        if str(collection["user_id"]) != user_id:
             return None
         
         return collection
     
-    @staticmethod
-    def update_collection(
-        db: Session, 
-        collection_id: int, 
-        user_id: int, 
+    async def update_collection(
+        self, 
+        collection_id: str, 
+        user_id: str, 
         collection_data: CollectionUpdate
-    ) -> Optional[Collection]:
-        """Update a collection with ownership validation."""
-        collection = CollectionManager.get_collection_by_id(db, collection_id, user_id)
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update a collection with ownership validation.
+        
+        Args:
+            collection_id: Collection's ObjectId as string
+            user_id: User's ObjectId as string
+            collection_data: Collection update data
+            
+        Returns:
+            Updated collection document if successful, None otherwise
+        """
+        collection = await self.get_collection_by_id(collection_id, user_id)
         if not collection:
             return None
         
-        # Update fields if provided
-        if collection_data.name is not None:
-            collection.name = collection_data.name
-        if collection_data.description is not None:
-            collection.description = collection_data.description
-        if collection_data.cover_image_url is not None:
-            collection.cover_image_url = collection_data.cover_image_url
+        # Build update document
+        update_doc = {"updated_at": datetime.utcnow()}
         
-        db.commit()
-        db.refresh(collection)
-        return collection
+        if collection_data.name is not None:
+            update_doc["name"] = collection_data.name
+        if collection_data.description is not None:
+            update_doc["description"] = collection_data.description
+        if collection_data.cover_image_url is not None:
+            update_doc["cover_image_url"] = collection_data.cover_image_url
+        
+        await self.collection_repository.update(collection_id, update_doc)
+        return await self.collection_repository.find_by_id(collection_id)
     
-    @staticmethod
-    def delete_collection(db: Session, collection_id: int, user_id: int) -> bool:
+    async def delete_collection(self, collection_id: str, user_id: str) -> bool:
         """
         Delete a collection with ownership validation.
-        Cascading delete will automatically remove sub-collections and collection-recipe associations.
+        Note: Sub-collections should be handled separately if needed.
+        
+        Args:
+            collection_id: Collection's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            True if deleted successfully, False otherwise
         """
-        collection = CollectionManager.get_collection_by_id(db, collection_id, user_id)
+        collection = await self.get_collection_by_id(collection_id, user_id)
         if not collection:
             return False
         
-        db.delete(collection)
-        db.commit()
-        return True
+        return await self.collection_repository.delete(collection_id)
     
     @staticmethod
     def validate_nesting_level(nesting_level: int) -> bool:
         """Validate that nesting level does not exceed maximum (3 levels)."""
         return nesting_level <= 3
     
-    @staticmethod
-    def add_recipes_to_collection(
-        db: Session, 
-        collection_id: int, 
-        recipe_ids: List[int], 
-        user_id: int
+    async def add_recipes_to_collection(
+        self, 
+        collection_id: str, 
+        recipe_ids: List[str], 
+        user_id: str
     ) -> int:
         """
         Add multiple recipes to a collection.
         Validates user ownership of both collection and recipes.
-        Returns count of recipes added.
+        
+        Args:
+            collection_id: Collection's ObjectId as string
+            recipe_ids: List of recipe ObjectIds as strings
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Count of recipes added
+            
+        Raises:
+            ValueError: If collection or any recipe not found or access denied
         """
         # Verify collection ownership
-        collection = CollectionManager.get_collection_by_id(db, collection_id, user_id)
+        collection = await self.get_collection_by_id(collection_id, user_id)
         if not collection:
             raise ValueError("Collection not found or access denied")
         
-        added_count = 0
-        
+        # Verify recipe ownership for all recipes
+        valid_recipe_ids = []
         for recipe_id in recipe_ids:
-            # Verify recipe ownership
-            recipe = db.query(Recipe).filter(
-                Recipe.id == recipe_id,
-                Recipe.user_id == user_id
-            ).first()
+            recipe = await self.recipe_repository.find_by_id(recipe_id)
             
             if not recipe:
                 raise ValueError(f"Recipe {recipe_id} not found or access denied")
             
-            # Check if association already exists
-            existing = db.query(CollectionRecipe).filter(
-                CollectionRecipe.collection_id == collection_id,
-                CollectionRecipe.recipe_id == recipe_id
-            ).first()
+            if str(recipe["user_id"]) != user_id:
+                raise ValueError(f"Recipe {recipe_id} not found or access denied")
             
-            if not existing:
-                # Create association
-                collection_recipe = CollectionRecipe(
-                    collection_id=collection_id,
-                    recipe_id=recipe_id
-                )
-                db.add(collection_recipe)
-                added_count += 1
+            # Check if recipe is not already in collection
+            if ObjectId(recipe_id) not in collection.get("recipe_ids", []):
+                valid_recipe_ids.append(recipe_id)
         
-        db.commit()
-        return added_count
+        if valid_recipe_ids:
+            await self.collection_repository.add_recipes(collection_id, valid_recipe_ids)
+        
+        return len(valid_recipe_ids)
     
-    @staticmethod
-    def remove_recipe_from_collection(
-        db: Session, 
-        collection_id: int, 
-        recipe_id: int, 
-        user_id: int
+    async def remove_recipe_from_collection(
+        self, 
+        collection_id: str, 
+        recipe_id: str, 
+        user_id: str
     ) -> bool:
         """
         Remove a recipe from a collection.
         Validates user ownership of collection.
         Does not delete the recipe itself.
+        
+        Args:
+            collection_id: Collection's ObjectId as string
+            recipe_id: Recipe's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            True if removed successfully, False otherwise
         """
         # Verify collection ownership
-        collection = CollectionManager.get_collection_by_id(db, collection_id, user_id)
+        collection = await self.get_collection_by_id(collection_id, user_id)
         if not collection:
             return False
         
-        # Find and delete the association
-        association = db.query(CollectionRecipe).filter(
-            CollectionRecipe.collection_id == collection_id,
-            CollectionRecipe.recipe_id == recipe_id
-        ).first()
-        
-        if not association:
-            return False
-        
-        db.delete(association)
-        db.commit()
-        return True
+        # Remove the recipe from the collection
+        return await self.collection_repository.remove_recipes(collection_id, [recipe_id])
     
-    @staticmethod
-    def generate_share_token(db: Session, collection_id: int, user_id: int) -> Optional[str]:
+    async def generate_share_token(self, collection_id: str, user_id: str) -> Optional[str]:
         """
         Generate a unique share token for a collection.
-        Returns the share token or None if collection not found.
+        
+        Args:
+            collection_id: Collection's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Share token string if successful, None if collection not found
         """
-        collection = CollectionManager.get_collection_by_id(db, collection_id, user_id)
+        collection = await self.get_collection_by_id(collection_id, user_id)
         if not collection:
             return None
         
@@ -198,36 +249,38 @@ class CollectionManager:
         share_token = secrets.token_urlsafe(32)
         
         # Ensure uniqueness (very unlikely to collide, but check anyway)
-        while db.query(Collection).filter(Collection.share_token == share_token).first():
+        while await self.collection_repository.find_by_share_token(share_token):
             share_token = secrets.token_urlsafe(32)
         
-        collection.share_token = share_token
-        db.commit()
-        db.refresh(collection)
+        await self.collection_repository.update(collection_id, {"share_token": share_token})
         return share_token
     
-    @staticmethod
-    def revoke_share_token(db: Session, collection_id: int, user_id: int) -> bool:
+    async def revoke_share_token(self, collection_id: str, user_id: str) -> bool:
         """
         Revoke the share token for a collection.
-        Returns True if successful, False if collection not found.
+        
+        Args:
+            collection_id: Collection's ObjectId as string
+            user_id: User's ObjectId as string
+            
+        Returns:
+            True if successful, False if collection not found
         """
-        collection = CollectionManager.get_collection_by_id(db, collection_id, user_id)
+        collection = await self.get_collection_by_id(collection_id, user_id)
         if not collection:
             return False
         
-        collection.share_token = None
-        db.commit()
+        await self.collection_repository.update(collection_id, {"share_token": None})
         return True
     
-    @staticmethod
-    def get_shared_collection(db: Session, share_token: str) -> Optional[Collection]:
+    async def get_shared_collection(self, share_token: str) -> Optional[Dict[str, Any]]:
         """
         Get a collection by its share token (public access, no auth required).
-        Returns None if token is invalid or collection not found.
-        """
-        collection = db.query(Collection).filter(
-            Collection.share_token == share_token
-        ).first()
         
-        return collection
+        Args:
+            share_token: Share token to search for
+            
+        Returns:
+            Collection document if found, None otherwise
+        """
+        return await self.collection_repository.find_by_share_token(share_token)

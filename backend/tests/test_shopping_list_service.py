@@ -2,74 +2,114 @@
 Unit tests for ShoppingListGenerator service.
 Tests core functionality of shopping list generation and management.
 """
+import os
+os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["SECRET_KEY"] = "test-secret-key-for-testing"
+os.environ["MONGODB_URL"] = "mongodb://localhost:27017"
+os.environ["MONGODB_DATABASE"] = "recipe_saver_test"
+
 import pytest
 from datetime import date, timedelta
+from bson import ObjectId
 from app.services.shopping_list_service import ShoppingListGenerator
-from app.models import ShoppingList, ShoppingListItem, Recipe, MealPlan, User
 from app.schemas import ShoppingListCreate, CustomItemCreate
-import json
+from app.repositories.shopping_list_repository import ShoppingListRepository
+from app.repositories.recipe_repository import RecipeRepository
+from app.repositories.meal_plan_repository import MealPlanRepository
+from app.repositories.user_repository import UserRepository
+from app.database import mongodb
 
 
 @pytest.fixture
-def test_user(db):
-    """Create a test user."""
-    user = User(username="testuser", password_hash="hashed_password")
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
-
-
-@pytest.fixture
-def test_recipe(db, test_user):
-    """Create a test recipe."""
-    recipe = Recipe(
-        user_id=test_user.id,
-        title="Test Recipe",
-        ingredients=json.dumps(["2 cups flour", "1 egg", "salt"]),
-        steps=json.dumps(["Mix ingredients", "Cook"])
+async def shopping_list_generator():
+    """Create ShoppingListGenerator with MongoDB repositories."""
+    await mongodb.connect(
+        os.environ.get("MONGODB_URL", "mongodb://localhost:27017"),
+        os.environ.get("MONGODB_DATABASE", "recipe_saver_test")
     )
-    db.add(recipe)
-    db.commit()
-    db.refresh(recipe)
-    return recipe
+    db = await mongodb.get_database()
+    
+    # Clean all collections before test
+    for collection_name in await db.list_collection_names():
+        await db[collection_name].delete_many({})
+    
+    shopping_list_repo = ShoppingListRepository(db)
+    recipe_repo = RecipeRepository(db)
+    meal_plan_repo = MealPlanRepository(db)
+    user_repo = UserRepository(db)
+    
+    generator = ShoppingListGenerator(shopping_list_repo, recipe_repo, meal_plan_repo)
+    
+    yield generator, user_repo, recipe_repo, meal_plan_repo
+    
+    # Clean up after test
+    for collection_name in await db.list_collection_names():
+        await db[collection_name].delete_many({})
+    await mongodb.disconnect()
 
 
-def test_create_shopping_list_from_recipes(db, test_user, test_recipe):
+@pytest.mark.asyncio
+async def test_create_shopping_list_from_recipes(shopping_list_generator):
     """Test creating a shopping list from recipe IDs."""
+    generator, user_repo, recipe_repo, _ = shopping_list_generator
+    
+    # Create a user
+    user_id = await user_repo.create({
+        "username": "testuser",
+        "password_hash": "hashed_password"
+    })
+    
+    # Create a recipe
+    recipe_id = await recipe_repo.create({
+        "user_id": ObjectId(user_id),
+        "title": "Test Recipe",
+        "ingredients": ["2 cups flour", "1 egg", "salt"],
+        "steps": ["Mix ingredients", "Cook"]
+    })
+    
     shopping_list_data = ShoppingListCreate(
         name="Weekly Shopping",
-        recipe_ids=[test_recipe.id]
+        recipe_ids=[recipe_id]
     )
     
-    shopping_list = ShoppingListGenerator.create_shopping_list(
-        db, test_user.id, shopping_list_data
-    )
+    shopping_list = await generator.create_shopping_list(user_id, shopping_list_data)
     
     assert shopping_list is not None
-    assert shopping_list.name == "Weekly Shopping"
-    assert shopping_list.user_id == test_user.id
+    assert shopping_list["name"] == "Weekly Shopping"
+    assert str(shopping_list["user_id"]) == user_id
     
-    # Verify items were created
-    items = db.query(ShoppingListItem).filter(
-        ShoppingListItem.shopping_list_id == shopping_list.id
-    ).all()
-    
+    # Verify items were created (embedded in the shopping list)
+    items = shopping_list.get("items", [])
     assert len(items) > 0
 
 
-def test_create_shopping_list_from_meal_plan(db, test_user, test_recipe):
+@pytest.mark.asyncio
+async def test_create_shopping_list_from_meal_plan(shopping_list_generator):
     """Test creating a shopping list from meal plan date range."""
+    generator, user_repo, recipe_repo, meal_plan_repo = shopping_list_generator
+    
+    # Create a user
+    user_id = await user_repo.create({
+        "username": "testuser",
+        "password_hash": "hashed_password"
+    })
+    
+    # Create a recipe
+    recipe_id = await recipe_repo.create({
+        "user_id": ObjectId(user_id),
+        "title": "Test Recipe",
+        "ingredients": ["2 cups flour", "1 egg", "salt"],
+        "steps": ["Mix ingredients", "Cook"]
+    })
+    
     # Create a meal plan
     today = date.today()
-    meal_plan = MealPlan(
-        user_id=test_user.id,
-        recipe_id=test_recipe.id,
-        meal_date=today,
-        meal_time='dinner'
-    )
-    db.add(meal_plan)
-    db.commit()
+    await meal_plan_repo.create({
+        "user_id": ObjectId(user_id),
+        "recipe_id": ObjectId(recipe_id),
+        "meal_date": today,
+        "meal_time": "dinner"
+    })
     
     # Create shopping list from meal plan
     shopping_list_data = ShoppingListCreate(
@@ -78,12 +118,10 @@ def test_create_shopping_list_from_meal_plan(db, test_user, test_recipe):
         meal_plan_end_date=(today + timedelta(days=7)).strftime('%Y-%m-%d')
     )
     
-    shopping_list = ShoppingListGenerator.create_shopping_list(
-        db, test_user.id, shopping_list_data
-    )
+    shopping_list = await generator.create_shopping_list(user_id, shopping_list_data)
     
     assert shopping_list is not None
-    assert shopping_list.name == "Meal Plan Shopping"
+    assert shopping_list["name"] == "Meal Plan Shopping"
 
 
 def test_extract_ingredients_from_recipes(db, test_user):

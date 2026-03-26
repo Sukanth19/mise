@@ -1,13 +1,14 @@
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
-from datetime import date
+from typing import List, Optional, Dict, Any
+from datetime import date, datetime
 from decimal import Decimal
-from app.models import NutritionFacts, DietaryLabel, AllergenWarning, Recipe, MealPlan
+from bson import ObjectId
+from app.repositories.recipe_repository import RecipeRepository
+from app.repositories.meal_plan_repository import MealPlanRepository
 from app.schemas import NutritionCreate, NutritionUpdate
 
 
 class NutritionTracker:
-    """Service for managing nutrition facts, dietary labels, and allergen warnings."""
+    """Service for managing nutrition facts, dietary labels, and allergen warnings (embedded in recipes)."""
     
     # Valid dietary labels
     VALID_DIETARY_LABELS = {
@@ -19,36 +20,55 @@ class NutritionTracker:
         'nuts', 'dairy', 'eggs', 'soy', 'wheat', 'fish', 'shellfish'
     }
     
+    def __init__(self, recipe_repository: RecipeRepository, meal_plan_repository: MealPlanRepository):
+        """
+        Initialize nutrition tracker with repositories.
+        
+        Args:
+            recipe_repository: RecipeRepository instance for data access
+            meal_plan_repository: MealPlanRepository instance for meal plan data
+        """
+        self.recipe_repository = recipe_repository
+        self.meal_plan_repository = meal_plan_repository
+    
     @staticmethod
     def validate_nutrition_values(nutrition_data: dict) -> bool:
         """
         Validate that all nutrition values are non-negative.
-        Returns True if valid, False otherwise.
+        
+        Args:
+            nutrition_data: Dictionary of nutrition values
+            
+        Returns:
+            True if valid, False otherwise
         """
         for key, value in nutrition_data.items():
             if value is not None and value < 0:
                 return False
         return True
     
-    @staticmethod
-    def add_nutrition_facts(
-        db: Session,
-        recipe_id: int,
+    async def add_nutrition_facts(
+        self,
+        recipe_id: str,
         nutrition_data: NutritionCreate,
-        user_id: int
-    ) -> Optional[NutritionFacts]:
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
-        Add nutrition facts to a recipe.
+        Add nutrition facts to a recipe (embedded document).
         Validates user ownership and non-negative values.
-        Returns None if validation fails or recipe not found.
+        
+        Args:
+            recipe_id: Recipe's ObjectId as string
+            nutrition_data: Nutrition facts data
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Updated recipe document if successful, None if validation fails or recipe not found
         """
         # Verify recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe = await self.recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe or str(recipe["user_id"]) != user_id:
             return None
         
         # Validate non-negative values
@@ -56,48 +76,45 @@ class NutritionTracker:
         if not NutritionTracker.validate_nutrition_values(nutrition_dict):
             return None
         
-        # Check if nutrition facts already exist
-        existing = db.query(NutritionFacts).filter(
-            NutritionFacts.recipe_id == recipe_id
-        ).first()
+        # Create nutrition facts embedded document
+        nutrition_facts = {
+            "calories": nutrition_data.calories,
+            "protein_g": nutrition_data.protein_g,
+            "carbs_g": nutrition_data.carbs_g,
+            "fat_g": nutrition_data.fat_g,
+            "fiber_g": nutrition_data.fiber_g
+        }
         
-        if existing:
-            # Update existing instead of creating new
-            return NutritionTracker.update_nutrition_facts(db, recipe_id, nutrition_data, user_id)
+        # Update recipe with embedded nutrition facts
+        await self.recipe_repository.update(recipe_id, {
+            "nutrition_facts": nutrition_facts,
+            "updated_at": datetime.utcnow()
+        })
         
-        # Create nutrition facts
-        nutrition_facts = NutritionFacts(
-            recipe_id=recipe_id,
-            calories=nutrition_data.calories,
-            protein_g=nutrition_data.protein_g,
-            carbs_g=nutrition_data.carbs_g,
-            fat_g=nutrition_data.fat_g,
-            fiber_g=nutrition_data.fiber_g
-        )
-        db.add(nutrition_facts)
-        db.commit()
-        db.refresh(nutrition_facts)
-        return nutrition_facts
+        return await self.recipe_repository.find_by_id(recipe_id)
     
-    @staticmethod
-    def update_nutrition_facts(
-        db: Session,
-        recipe_id: int,
+    async def update_nutrition_facts(
+        self,
+        recipe_id: str,
         nutrition_data: NutritionUpdate,
-        user_id: int
-    ) -> Optional[NutritionFacts]:
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
-        Update nutrition facts for a recipe.
+        Update nutrition facts for a recipe (embedded document).
         Validates user ownership and non-negative values.
-        Returns None if validation fails or nutrition facts not found.
+        
+        Args:
+            recipe_id: Recipe's ObjectId as string
+            nutrition_data: Nutrition facts update data
+            user_id: User's ObjectId as string
+            
+        Returns:
+            Updated recipe document if successful, None if validation fails or recipe not found
         """
         # Verify recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe = await self.recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe or str(recipe["user_id"]) != user_id:
             return None
         
         # Validate non-negative values
@@ -105,80 +122,95 @@ class NutritionTracker:
         if not NutritionTracker.validate_nutrition_values(nutrition_dict):
             return None
         
-        # Get existing nutrition facts
-        nutrition_facts = db.query(NutritionFacts).filter(
-            NutritionFacts.recipe_id == recipe_id
-        ).first()
-        
-        if not nutrition_facts:
-            return None
+        # Get existing nutrition facts or create new
+        nutrition_facts = recipe.get("nutrition_facts", {})
         
         # Update fields
         if nutrition_data.calories is not None:
-            nutrition_facts.calories = nutrition_data.calories
+            nutrition_facts["calories"] = nutrition_data.calories
         if nutrition_data.protein_g is not None:
-            nutrition_facts.protein_g = nutrition_data.protein_g
+            nutrition_facts["protein_g"] = nutrition_data.protein_g
         if nutrition_data.carbs_g is not None:
-            nutrition_facts.carbs_g = nutrition_data.carbs_g
+            nutrition_facts["carbs_g"] = nutrition_data.carbs_g
         if nutrition_data.fat_g is not None:
-            nutrition_facts.fat_g = nutrition_data.fat_g
+            nutrition_facts["fat_g"] = nutrition_data.fat_g
         if nutrition_data.fiber_g is not None:
-            nutrition_facts.fiber_g = nutrition_data.fiber_g
+            nutrition_facts["fiber_g"] = nutrition_data.fiber_g
         
-        db.commit()
-        db.refresh(nutrition_facts)
-        return nutrition_facts
+        # Update recipe with embedded nutrition facts
+        await self.recipe_repository.update(recipe_id, {
+            "nutrition_facts": nutrition_facts,
+            "updated_at": datetime.utcnow()
+        })
+        
+        return await self.recipe_repository.find_by_id(recipe_id)
     
-    @staticmethod
-    def get_nutrition_facts(db: Session, recipe_id: int) -> Optional[NutritionFacts]:
+    async def get_nutrition_facts(self, recipe_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get nutrition facts for a recipe.
-        Returns None if not found.
+        Get nutrition facts for a recipe (from embedded document).
+        
+        Args:
+            recipe_id: Recipe's ObjectId as string
+            
+        Returns:
+            Nutrition facts dictionary if found, None otherwise
         """
-        return db.query(NutritionFacts).filter(
-            NutritionFacts.recipe_id == recipe_id
-        ).first()
+        recipe = await self.recipe_repository.find_by_id(recipe_id)
+        
+        if not recipe:
+            return None
+        
+        return recipe.get("nutrition_facts")
     
     @staticmethod
     def calculate_per_serving(
-        nutrition: NutritionFacts,
+        nutrition: Dict[str, Any],
         servings: int
     ) -> Dict[str, Optional[float]]:
         """
         Calculate per-serving nutrition values by dividing total by servings.
-        Returns dictionary with per-serving values.
+        
+        Args:
+            nutrition: Nutrition facts dictionary
+            servings: Number of servings
+            
+        Returns:
+            Dictionary with per-serving values
         """
         if servings <= 0:
             servings = 1
         
         return {
-            'calories': float(nutrition.calories / servings) if nutrition.calories else None,
-            'protein_g': float(nutrition.protein_g / servings) if nutrition.protein_g else None,
-            'carbs_g': float(nutrition.carbs_g / servings) if nutrition.carbs_g else None,
-            'fat_g': float(nutrition.fat_g / servings) if nutrition.fat_g else None,
-            'fiber_g': float(nutrition.fiber_g / servings) if nutrition.fiber_g else None
+            'calories': float(nutrition.get("calories", 0) / servings) if nutrition.get("calories") else None,
+            'protein_g': float(nutrition.get("protein_g", 0) / servings) if nutrition.get("protein_g") else None,
+            'carbs_g': float(nutrition.get("carbs_g", 0) / servings) if nutrition.get("carbs_g") else None,
+            'fat_g': float(nutrition.get("fat_g", 0) / servings) if nutrition.get("fat_g") else None,
+            'fiber_g': float(nutrition.get("fiber_g", 0) / servings) if nutrition.get("fiber_g") else None
         }
     
-    @staticmethod
-    def add_dietary_labels(
-        db: Session,
-        recipe_id: int,
+    async def add_dietary_labels(
+        self,
+        recipe_id: str,
         labels: List[str],
-        user_id: int
+        user_id: str
     ) -> Optional[List[str]]:
         """
-        Add dietary labels to a recipe.
+        Add dietary labels to a recipe (embedded array).
         Validates user ownership and label values.
         Replaces existing labels with new ones.
-        Returns list of labels or None if validation fails.
+        
+        Args:
+            recipe_id: Recipe's ObjectId as string
+            labels: List of dietary labels
+            user_id: User's ObjectId as string
+            
+        Returns:
+            List of labels if successful, None if validation fails
         """
         # Verify recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe = await self.recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe or str(recipe["user_id"]) != user_id:
             return None
         
         # Validate all labels
@@ -186,42 +218,37 @@ class NutritionTracker:
             if label not in NutritionTracker.VALID_DIETARY_LABELS:
                 return None
         
-        # Remove existing labels
-        db.query(DietaryLabel).filter(
-            DietaryLabel.recipe_id == recipe_id
-        ).delete()
+        # Update recipe with dietary labels
+        await self.recipe_repository.update(recipe_id, {
+            "dietary_labels": labels,
+            "updated_at": datetime.utcnow()
+        })
         
-        # Add new labels
-        for label in labels:
-            dietary_label = DietaryLabel(
-                recipe_id=recipe_id,
-                label=label
-            )
-            db.add(dietary_label)
-        
-        db.commit()
         return labels
     
-    @staticmethod
-    def add_allergen_warnings(
-        db: Session,
-        recipe_id: int,
+    async def add_allergen_warnings(
+        self,
+        recipe_id: str,
         allergens: List[str],
-        user_id: int
+        user_id: str
     ) -> Optional[List[str]]:
         """
-        Add allergen warnings to a recipe.
+        Add allergen warnings to a recipe (embedded array).
         Validates user ownership and allergen values.
         Replaces existing allergens with new ones.
-        Returns list of allergens or None if validation fails.
+        
+        Args:
+            recipe_id: Recipe's ObjectId as string
+            allergens: List of allergen warnings
+            user_id: User's ObjectId as string
+            
+        Returns:
+            List of allergens if successful, None if validation fails
         """
         # Verify recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe = await self.recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe or str(recipe["user_id"]) != user_id:
             return None
         
         # Validate all allergens
@@ -229,44 +256,41 @@ class NutritionTracker:
             if allergen not in NutritionTracker.VALID_ALLERGENS:
                 return None
         
-        # Remove existing allergens
-        db.query(AllergenWarning).filter(
-            AllergenWarning.recipe_id == recipe_id
-        ).delete()
+        # Update recipe with allergen warnings
+        await self.recipe_repository.update(recipe_id, {
+            "allergen_warnings": allergens,
+            "updated_at": datetime.utcnow()
+        })
         
-        # Add new allergens
-        for allergen in allergens:
-            allergen_warning = AllergenWarning(
-                recipe_id=recipe_id,
-                allergen=allergen
-            )
-            db.add(allergen_warning)
-        
-        db.commit()
         return allergens
     
-    @staticmethod
-    def get_meal_plan_nutrition_summary(
-        db: Session,
-        user_id: int,
+    async def get_meal_plan_nutrition_summary(
+        self,
+        user_id: str,
         start_date: date,
         end_date: date
     ) -> Dict:
         """
         Calculate nutrition summary for a meal plan date range.
         Returns daily totals, weekly total, and count of recipes with missing nutrition.
+        
+        Args:
+            user_id: User's ObjectId as string
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+            
+        Returns:
+            Dictionary with daily_totals, weekly_total, and missing_nutrition_count
         """
         # Get meal plans for date range
-        meal_plans = db.query(MealPlan).filter(
-            MealPlan.user_id == user_id,
-            MealPlan.meal_date >= start_date,
-            MealPlan.meal_date <= end_date
-        ).order_by(MealPlan.meal_date).all()
+        meal_plans = await self.meal_plan_repository.find_by_user_and_date_range(
+            user_id, start_date, end_date
+        )
         
         # Group meal plans by date
         daily_meals = {}
         for meal_plan in meal_plans:
-            date_str = meal_plan.meal_date.isoformat()
+            date_str = meal_plan["meal_date"].isoformat()
             if date_str not in daily_meals:
                 daily_meals[date_str] = []
             daily_meals[date_str].append(meal_plan)
@@ -293,24 +317,24 @@ class NutritionTracker:
             }
             
             for meal_plan in daily_meals[date_str]:
-                # Get nutrition facts for recipe
-                nutrition = NutritionTracker.get_nutrition_facts(db, meal_plan.recipe_id)
+                # Get nutrition facts for recipe (embedded in recipe document)
+                nutrition = await self.get_nutrition_facts(str(meal_plan["recipe_id"]))
                 
                 if not nutrition:
                     missing_nutrition_count += 1
                     continue
                 
                 # Add to daily total
-                if nutrition.calories:
-                    daily_total['calories'] += nutrition.calories
-                if nutrition.protein_g:
-                    daily_total['protein_g'] += nutrition.protein_g
-                if nutrition.carbs_g:
-                    daily_total['carbs_g'] += nutrition.carbs_g
-                if nutrition.fat_g:
-                    daily_total['fat_g'] += nutrition.fat_g
-                if nutrition.fiber_g:
-                    daily_total['fiber_g'] += nutrition.fiber_g
+                if nutrition.get("calories"):
+                    daily_total['calories'] += Decimal(str(nutrition["calories"]))
+                if nutrition.get("protein_g"):
+                    daily_total['protein_g'] += Decimal(str(nutrition["protein_g"]))
+                if nutrition.get("carbs_g"):
+                    daily_total['carbs_g'] += Decimal(str(nutrition["carbs_g"]))
+                if nutrition.get("fat_g"):
+                    daily_total['fat_g'] += Decimal(str(nutrition["fat_g"]))
+                if nutrition.get("fiber_g"):
+                    daily_total['fiber_g'] += Decimal(str(nutrition["fiber_g"]))
             
             # Convert to float for response
             daily_total_float = {

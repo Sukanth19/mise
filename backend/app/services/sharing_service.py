@@ -1,28 +1,55 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
 from typing import Optional, List, Tuple
-from app.models import Recipe, User, RecipeLike, RecipeComment, UserFollow
+from bson import ObjectId
 import json
 import qrcode
 from io import BytesIO
 import httpx
 from bs4 import BeautifulSoup
 
+from app.repositories.recipe_repository import RecipeRepository
+from app.repositories.user_repository import UserRepository
+from app.repositories.recipe_like_repository import RecipeLikeRepository
+from app.repositories.recipe_comment_repository import RecipeCommentRepository
+from app.repositories.user_follow_repository import UserFollowRepository
+
 
 class SharingService:
     """Service for managing recipe sharing and social features."""
+    
+    def __init__(
+        self,
+        recipe_repository: RecipeRepository,
+        user_repository: UserRepository,
+        like_repository: RecipeLikeRepository,
+        comment_repository: RecipeCommentRepository,
+        follow_repository: UserFollowRepository
+    ):
+        """
+        Initialize sharing service with repositories.
+        
+        Args:
+            recipe_repository: RecipeRepository instance
+            user_repository: UserRepository instance
+            like_repository: RecipeLikeRepository instance
+            comment_repository: RecipeCommentRepository instance
+            follow_repository: UserFollowRepository instance
+        """
+        self.recipe_repo = recipe_repository
+        self.user_repo = user_repository
+        self.like_repo = like_repository
+        self.comment_repo = comment_repository
+        self.follow_repo = follow_repository
     
     # ========================================================================
     # Recipe Visibility and Discovery (Subtask 18.1)
     # ========================================================================
     
-    @staticmethod
-    def set_recipe_visibility(
-        db: Session, 
-        recipe_id: int, 
+    async def set_recipe_visibility(
+        self, 
+        recipe_id: str, 
         visibility: str, 
-        user_id: int
-    ) -> Optional[Recipe]:
+        user_id: str
+    ) -> Optional[dict]:
         """
         Set recipe visibility (private, public, unlisted).
         Returns None if recipe doesn't exist or user doesn't own it.
@@ -32,75 +59,85 @@ class SharingService:
         if visibility not in ('private', 'public', 'unlisted'):
             return None
         
-        # Get recipe and verify ownership
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        # Validate ObjectIds
+        if not ObjectId.is_valid(recipe_id) or not ObjectId.is_valid(user_id):
+            return None
         
-        if not recipe:
+        # Get recipe and verify ownership
+        recipe = await self.recipe_repo.find_by_id(recipe_id)
+        
+        if not recipe or str(recipe.get('user_id')) != user_id:
             return None
         
         # Update visibility
-        recipe.visibility = visibility
-        db.commit()
-        db.refresh(recipe)
-        return recipe
+        update_data = {"visibility": visibility}
+        success = await self.recipe_repo.update(recipe_id, update_data)
+        
+        if not success:
+            return None
+        
+        # Return updated recipe
+        return await self.recipe_repo.find_by_id(recipe_id)
     
-    @staticmethod
-    def get_public_recipes(
-        db: Session, 
+    async def get_public_recipes(
+        self, 
         page: int = 1, 
         limit: int = 20, 
         search: Optional[str] = None
-    ) -> Tuple[List[Recipe], int]:
+    ) -> Tuple[List[dict], int]:
         """
         Get paginated list of public recipes ordered by created_at desc.
         Returns (recipes, total_count).
         Requirements: 29.2, 30.1, 30.2, 30.3
         """
-        # Base query for public recipes only
-        query = db.query(Recipe).filter(Recipe.visibility == 'public')
+        skip = (page - 1) * limit
         
         # Apply search filter if provided
         if search:
-            search_pattern = f"%{search}%"
-            query = query.filter(Recipe.title.ilike(search_pattern))
+            # Use text search
+            recipes = await self.recipe_repo.search(
+                search_text=search,
+                filters={"visibility": "public"},
+                skip=skip,
+                limit=limit
+            )
+        else:
+            # Get public recipes with filters
+            recipes = await self.recipe_repo.find_with_filters(
+                visibility="public",
+                skip=skip,
+                limit=limit
+            )
         
         # Get total count
-        total = query.count()
-        
-        # Apply ordering and pagination
-        recipes = query.order_by(desc(Recipe.created_at)).offset((page - 1) * limit).limit(limit).all()
+        total = await self.recipe_repo.count({"visibility": "public"})
         
         return recipes, total
     
-    @staticmethod
-    def get_public_recipe_by_id(db: Session, recipe_id: int) -> Optional[dict]:
+    async def get_public_recipe_by_id(self, recipe_id: str) -> Optional[dict]:
         """
         Get public recipe by ID with author info, likes count, and comments.
         Returns None if recipe doesn't exist or is not public/unlisted.
         Requirements: 29.3, 30.1, 30.2, 30.3
         """
-        # Get recipe (must be public or unlisted)
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.visibility.in_(['public', 'unlisted'])
-        ).first()
+        # Validate ObjectId
+        if not ObjectId.is_valid(recipe_id):
+            return None
         
-        if not recipe:
+        # Get recipe (must be public or unlisted)
+        recipe = await self.recipe_repo.find_by_id(recipe_id)
+        
+        if not recipe or recipe.get('visibility') not in ['public', 'unlisted']:
             return None
         
         # Get author
-        author = db.query(User).filter(User.id == recipe.user_id).first()
+        author = await self.user_repo.find_by_id(str(recipe.get('user_id')))
         
         # Get likes count
-        likes_count = db.query(RecipeLike).filter(RecipeLike.recipe_id == recipe_id).count()
+        likes_count = await self.like_repo.count_likes(recipe_id)
         
         # Get comments
-        comments = db.query(RecipeComment).filter(
-            RecipeComment.recipe_id == recipe_id
-        ).order_by(RecipeComment.created_at).all()
+        comments = await self.comment_repo.find_by_recipe(recipe_id)
         
         return {
             'recipe': recipe,
@@ -113,255 +150,282 @@ class SharingService:
     # Recipe Forking (Subtask 18.2)
     # ========================================================================
     
-    @staticmethod
-    def fork_recipe(db: Session, recipe_id: int, user_id: int) -> Optional[Recipe]:
+    async def fork_recipe(self, recipe_id: str, user_id: str) -> Optional[dict]:
         """
         Fork a public or unlisted recipe to user's collection.
         Returns None if recipe doesn't exist or is private.
         Requirements: 33.1, 33.2, 33.3, 33.4
         """
-        # Get source recipe (must be public or unlisted)
-        source_recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.visibility.in_(['public', 'unlisted'])
-        ).first()
-        
-        if not source_recipe:
+        # Validate ObjectIds
+        if not ObjectId.is_valid(recipe_id) or not ObjectId.is_valid(user_id):
             return None
         
-        # Parse JSON fields
-        ingredients = json.loads(source_recipe.ingredients) if isinstance(source_recipe.ingredients, str) else source_recipe.ingredients
-        steps = json.loads(source_recipe.steps) if isinstance(source_recipe.steps, str) else source_recipe.steps
-        tags = json.loads(source_recipe.tags) if source_recipe.tags and isinstance(source_recipe.tags, str) else source_recipe.tags
+        # Get source recipe (must be public or unlisted)
+        source_recipe = await self.recipe_repo.find_by_id(recipe_id)
+        
+        if not source_recipe or source_recipe.get('visibility') not in ['public', 'unlisted']:
+            return None
+        
+        # Create forked recipe data
+        forked_recipe_data = {
+            'user_id': ObjectId(user_id),
+            'title': source_recipe.get('title'),
+            'image_url': source_recipe.get('image_url'),
+            'ingredients': source_recipe.get('ingredients', []),
+            'steps': source_recipe.get('steps', []),
+            'tags': source_recipe.get('tags', []),
+            'reference_link': source_recipe.get('reference_link'),
+            'visibility': 'private',  # Forked recipes default to private
+            'servings': source_recipe.get('servings', 1),
+            'source_recipe_id': ObjectId(recipe_id),
+            'source_author_id': source_recipe.get('user_id'),
+            'is_favorite': False
+        }
+        
+        # Copy nutrition facts if present
+        if 'nutrition_facts' in source_recipe:
+            forked_recipe_data['nutrition_facts'] = source_recipe['nutrition_facts']
+        
+        # Copy dietary labels and allergen warnings if present
+        if 'dietary_labels' in source_recipe:
+            forked_recipe_data['dietary_labels'] = source_recipe['dietary_labels']
+        if 'allergen_warnings' in source_recipe:
+            forked_recipe_data['allergen_warnings'] = source_recipe['allergen_warnings']
         
         # Create forked recipe
-        forked_recipe = Recipe(
-            user_id=user_id,
-            title=source_recipe.title,
-            image_url=source_recipe.image_url,
-            ingredients=json.dumps(ingredients),
-            steps=json.dumps(steps),
-            tags=json.dumps(tags) if tags else None,
-            reference_link=source_recipe.reference_link,
-            visibility='private',  # Forked recipes default to private
-            servings=source_recipe.servings,
-            source_recipe_id=source_recipe.id,
-            source_author_id=source_recipe.user_id,
-            is_favorite=False
-        )
+        forked_recipe_id = await self.recipe_repo.create(forked_recipe_data)
         
-        db.add(forked_recipe)
-        db.commit()
-        db.refresh(forked_recipe)
-        return forked_recipe
+        # Return the created recipe
+        return await self.recipe_repo.find_by_id(forked_recipe_id)
     
     # ========================================================================
     # Likes and Comments (Subtask 18.3)
     # ========================================================================
     
-    @staticmethod
-    def like_recipe(db: Session, recipe_id: int, user_id: int) -> Tuple[bool, int]:
+    async def like_recipe(self, recipe_id: str, user_id: str) -> Tuple[bool, int]:
         """
         Like a recipe. Returns (liked_status, likes_count).
         Requirements: 32.1, 32.2
         """
+        # Validate ObjectIds
+        if not ObjectId.is_valid(recipe_id) or not ObjectId.is_valid(user_id):
+            return False, 0
+        
         # Check if recipe exists
-        recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+        recipe = await self.recipe_repo.find_by_id(recipe_id)
         if not recipe:
             return False, 0
         
         # Check if already liked
-        existing_like = db.query(RecipeLike).filter(
-            RecipeLike.recipe_id == recipe_id,
-            RecipeLike.user_id == user_id
-        ).first()
+        already_liked = await self.like_repo.has_liked(user_id, recipe_id)
         
-        if existing_like:
+        if already_liked:
             # Already liked, return current status
-            likes_count = db.query(RecipeLike).filter(RecipeLike.recipe_id == recipe_id).count()
+            likes_count = await self.like_repo.count_likes(recipe_id)
             return True, likes_count
         
         # Create new like
-        new_like = RecipeLike(
-            recipe_id=recipe_id,
-            user_id=user_id
-        )
-        db.add(new_like)
-        db.commit()
+        like_data = {
+            'recipe_id': ObjectId(recipe_id),
+            'user_id': ObjectId(user_id)
+        }
+        await self.like_repo.create(like_data)
         
         # Get updated likes count
-        likes_count = db.query(RecipeLike).filter(RecipeLike.recipe_id == recipe_id).count()
+        likes_count = await self.like_repo.count_likes(recipe_id)
         return True, likes_count
     
-    @staticmethod
-    def unlike_recipe(db: Session, recipe_id: int, user_id: int) -> Tuple[bool, int]:
+    async def unlike_recipe(self, recipe_id: str, user_id: str) -> Tuple[bool, int]:
         """
         Unlike a recipe. Returns (liked_status, likes_count).
         Requirements: 32.1, 32.2
         """
-        # Find and delete like
-        like = db.query(RecipeLike).filter(
-            RecipeLike.recipe_id == recipe_id,
-            RecipeLike.user_id == user_id
-        ).first()
+        # Validate ObjectIds
+        if not ObjectId.is_valid(recipe_id) or not ObjectId.is_valid(user_id):
+            return False, 0
         
-        if like:
-            db.delete(like)
-            db.commit()
+        # Find and delete like
+        likes = await self.like_repo.find_many({
+            'recipe_id': ObjectId(recipe_id),
+            'user_id': ObjectId(user_id)
+        })
+        
+        if likes:
+            like_id = str(likes[0]['_id'])
+            await self.like_repo.delete(like_id)
         
         # Get updated likes count
-        likes_count = db.query(RecipeLike).filter(RecipeLike.recipe_id == recipe_id).count()
+        likes_count = await self.like_repo.count_likes(recipe_id)
         return False, likes_count
     
-    @staticmethod
-    def add_comment(db: Session, recipe_id: int, user_id: int, comment_text: str) -> Optional[RecipeComment]:
+    async def add_comment(self, recipe_id: str, user_id: str, comment_text: str) -> Optional[dict]:
         """
         Add a comment to a recipe.
         Returns None if recipe doesn't exist.
         Requirements: 32.3, 32.4
         """
+        # Validate ObjectIds
+        if not ObjectId.is_valid(recipe_id) or not ObjectId.is_valid(user_id):
+            return None
+        
         # Check if recipe exists
-        recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+        recipe = await self.recipe_repo.find_by_id(recipe_id)
         if not recipe:
             return None
         
         # Create comment
-        comment = RecipeComment(
-            recipe_id=recipe_id,
-            user_id=user_id,
-            comment_text=comment_text
-        )
-        db.add(comment)
-        db.commit()
-        db.refresh(comment)
-        return comment
+        comment_data = {
+            'recipe_id': ObjectId(recipe_id),
+            'user_id': ObjectId(user_id),
+            'comment_text': comment_text
+        }
+        comment_id = await self.comment_repo.create(comment_data)
+        
+        # Return the created comment
+        return await self.comment_repo.find_by_id(comment_id)
     
-    @staticmethod
-    def get_recipe_comments(db: Session, recipe_id: int) -> List[RecipeComment]:
+    async def get_recipe_comments(self, recipe_id: str) -> List[dict]:
         """
         Get all comments for a recipe ordered by created_at.
         Requirements: 32.3, 32.4
         """
-        return db.query(RecipeComment).filter(
-            RecipeComment.recipe_id == recipe_id
-        ).order_by(RecipeComment.created_at).all()
+        # Validate ObjectId
+        if not ObjectId.is_valid(recipe_id):
+            return []
+        
+        return await self.comment_repo.find_by_recipe(recipe_id)
     
     # ========================================================================
     # User Following (Subtask 18.4)
     # ========================================================================
     
-    @staticmethod
-    def follow_user(db: Session, follower_id: int, following_id: int) -> Tuple[bool, int]:
+    async def follow_user(self, follower_id: str, following_id: str) -> Tuple[bool, int]:
         """
         Follow a user. Returns (following_status, followers_count).
         Returns (False, 0) if trying to follow self.
         Requirements: 31.1, 31.2, 31.3, 31.4
         """
+        # Validate ObjectIds
+        if not ObjectId.is_valid(follower_id) or not ObjectId.is_valid(following_id):
+            return False, 0
+        
         # Validate not following self
         if follower_id == following_id:
             return False, 0
         
         # Check if user exists
-        user = db.query(User).filter(User.id == following_id).first()
+        user = await self.user_repo.find_by_id(following_id)
         if not user:
             return False, 0
         
         # Check if already following
-        existing_follow = db.query(UserFollow).filter(
-            UserFollow.follower_id == follower_id,
-            UserFollow.following_id == following_id
-        ).first()
+        already_following = await self.follow_repo.is_following(follower_id, following_id)
         
-        if existing_follow:
+        if already_following:
             # Already following, return current status
-            followers_count = db.query(UserFollow).filter(
-                UserFollow.following_id == following_id
-            ).count()
-            return True, followers_count
+            followers = await self.follow_repo.find_followers(following_id)
+            return True, len(followers)
         
         # Create new follow
-        new_follow = UserFollow(
-            follower_id=follower_id,
-            following_id=following_id
-        )
-        db.add(new_follow)
-        db.commit()
+        follow_data = {
+            'follower_id': ObjectId(follower_id),
+            'following_id': ObjectId(following_id)
+        }
+        await self.follow_repo.create(follow_data)
         
         # Get updated followers count
-        followers_count = db.query(UserFollow).filter(
-            UserFollow.following_id == following_id
-        ).count()
-        return True, followers_count
+        followers = await self.follow_repo.find_followers(following_id)
+        return True, len(followers)
     
-    @staticmethod
-    def unfollow_user(db: Session, follower_id: int, following_id: int) -> Tuple[bool, int]:
+    async def unfollow_user(self, follower_id: str, following_id: str) -> Tuple[bool, int]:
         """
         Unfollow a user. Returns (following_status, followers_count).
         Requirements: 31.1, 31.2, 31.3, 31.4
         """
-        # Find and delete follow
-        follow = db.query(UserFollow).filter(
-            UserFollow.follower_id == follower_id,
-            UserFollow.following_id == following_id
-        ).first()
+        # Validate ObjectIds
+        if not ObjectId.is_valid(follower_id) or not ObjectId.is_valid(following_id):
+            return False, 0
         
-        if follow:
-            db.delete(follow)
-            db.commit()
+        # Find and delete follow
+        follows = await self.follow_repo.find_many({
+            'follower_id': ObjectId(follower_id),
+            'following_id': ObjectId(following_id)
+        })
+        
+        if follows:
+            follow_id = str(follows[0]['_id'])
+            await self.follow_repo.delete(follow_id)
         
         # Get updated followers count
-        followers_count = db.query(UserFollow).filter(
-            UserFollow.following_id == following_id
-        ).count()
-        return False, followers_count
+        followers = await self.follow_repo.find_followers(following_id)
+        return False, len(followers)
     
-    @staticmethod
-    def get_followers(db: Session, user_id: int) -> List[User]:
+    async def get_followers(self, user_id: str) -> List[dict]:
         """
         Get list of users following the specified user.
         Requirements: 31.3, 31.4
         """
-        # Get follower IDs
-        follower_ids = db.query(UserFollow.follower_id).filter(
-            UserFollow.following_id == user_id
-        ).all()
+        # Validate ObjectId
+        if not ObjectId.is_valid(user_id):
+            return []
         
-        # Get user objects
-        follower_ids = [fid[0] for fid in follower_ids]
+        # Get follower documents
+        follow_docs = await self.follow_repo.find_followers(user_id)
+        
+        # Get user objects for each follower
+        follower_ids = [str(doc['follower_id']) for doc in follow_docs]
         if not follower_ids:
             return []
         
-        return db.query(User).filter(User.id.in_(follower_ids)).all()
+        # Fetch all follower users
+        users = []
+        for follower_id in follower_ids:
+            user = await self.user_repo.find_by_id(follower_id)
+            if user:
+                users.append(user)
+        
+        return users
     
-    @staticmethod
-    def get_following(db: Session, user_id: int) -> List[User]:
+    async def get_following(self, user_id: str) -> List[dict]:
         """
         Get list of users that the specified user is following.
         Requirements: 31.3, 31.4
         """
-        # Get following IDs
-        following_ids = db.query(UserFollow.following_id).filter(
-            UserFollow.follower_id == user_id
-        ).all()
+        # Validate ObjectId
+        if not ObjectId.is_valid(user_id):
+            return []
         
-        # Get user objects
-        following_ids = [fid[0] for fid in following_ids]
+        # Get following documents
+        follow_docs = await self.follow_repo.find_following(user_id)
+        
+        # Get user objects for each following
+        following_ids = [str(doc['following_id']) for doc in follow_docs]
         if not following_ids:
             return []
         
-        return db.query(User).filter(User.id.in_(following_ids)).all()
+        # Fetch all following users
+        users = []
+        for following_id in following_ids:
+            user = await self.user_repo.find_by_id(following_id)
+            if user:
+                users.append(user)
+        
+        return users
     
     # ========================================================================
     # Recipe URL Import (Subtask 19.1)
     # ========================================================================
     
-    @staticmethod
-    def import_recipe_from_url(db: Session, url: str, user_id: int) -> Optional[Recipe]:
+    async def import_recipe_from_url(self, url: str, user_id: str) -> Optional[dict]:
         """
         Import recipe from URL by parsing webpage content.
         Returns None if URL is invalid or recipe data cannot be extracted.
         Requirements: 34.1, 34.2, 34.3, 34.4
         """
+        # Validate ObjectId
+        if not ObjectId.is_valid(user_id):
+            return None
+        
         try:
             # Fetch webpage content
             response = httpx.get(url, timeout=10.0, follow_redirects=True)
@@ -371,41 +435,40 @@ class SharingService:
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # Try to extract recipe data from schema.org structured data
-            recipe_data = SharingService._extract_recipe_from_schema(soup)
+            recipe_data = self._extract_recipe_from_schema(soup)
             
             # If schema extraction fails, try basic HTML parsing
             if not recipe_data:
-                recipe_data = SharingService._extract_recipe_from_html(soup)
+                recipe_data = self._extract_recipe_from_html(soup)
             
             if not recipe_data:
                 return None
             
             # Create recipe with extracted data
-            new_recipe = Recipe(
-                user_id=user_id,
-                title=recipe_data.get('title', 'Imported Recipe'),
-                image_url=recipe_data.get('image_url'),
-                ingredients=json.dumps(recipe_data.get('ingredients', [])),
-                steps=json.dumps(recipe_data.get('steps', [])),
-                tags=json.dumps(recipe_data.get('tags', [])) if recipe_data.get('tags') else None,
-                reference_link=url,
-                visibility='private',
-                servings=recipe_data.get('servings', 1),
-                is_favorite=False
-            )
+            new_recipe_data = {
+                'user_id': ObjectId(user_id),
+                'title': recipe_data.get('title', 'Imported Recipe'),
+                'image_url': recipe_data.get('image_url'),
+                'ingredients': recipe_data.get('ingredients', []),
+                'steps': recipe_data.get('steps', []),
+                'tags': recipe_data.get('tags', []),
+                'reference_link': url,
+                'visibility': 'private',
+                'servings': recipe_data.get('servings', 1),
+                'is_favorite': False
+            }
             
-            db.add(new_recipe)
-            db.commit()
-            db.refresh(new_recipe)
-            return new_recipe
+            recipe_id = await self.recipe_repo.create(new_recipe_data)
+            
+            # Return the created recipe
+            return await self.recipe_repo.find_by_id(recipe_id)
             
         except Exception as e:
             # Handle any errors gracefully
             print(f"Error importing recipe from URL: {e}")
             return None
     
-    @staticmethod
-    def _extract_recipe_from_schema(soup: BeautifulSoup) -> Optional[dict]:
+    def _extract_recipe_from_schema(self, soup: BeautifulSoup) -> Optional[dict]:
         """Extract recipe data from schema.org JSON-LD structured data."""
         try:
             # Look for JSON-LD script tags
@@ -482,8 +545,7 @@ class SharingService:
         except Exception:
             return None
     
-    @staticmethod
-    def _extract_recipe_from_html(soup: BeautifulSoup) -> Optional[dict]:
+    def _extract_recipe_from_html(self, soup: BeautifulSoup) -> Optional[dict]:
         """Extract recipe data from HTML elements (fallback method)."""
         try:
             # Try to find title
@@ -529,8 +591,7 @@ class SharingService:
     # QR Code Generation (Subtask 19.2)
     # ========================================================================
     
-    @staticmethod
-    def generate_qr_code(recipe_url: str) -> bytes:
+    def generate_qr_code(self, recipe_url: str) -> bytes:
         """
         Generate QR code image for recipe URL.
         Returns PNG image bytes.
@@ -559,21 +620,24 @@ class SharingService:
     # Social Media Share Metadata (Subtask 19.3)
     # ========================================================================
     
-    @staticmethod
-    def get_share_metadata(db: Session, recipe_id: int, base_url: str) -> Optional[dict]:
+    async def get_share_metadata(self, recipe_id: str, base_url: str) -> Optional[dict]:
         """
         Get social media share metadata for a recipe.
         Returns metadata formatted for Open Graph and Twitter Cards.
         Requirements: 35.1, 35.2
         """
+        # Validate ObjectId
+        if not ObjectId.is_valid(recipe_id):
+            return None
+        
         # Get recipe
-        recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+        recipe = await self.recipe_repo.find_by_id(recipe_id)
         if not recipe:
             return None
         
-        # Parse ingredients and steps for description
-        ingredients = json.loads(recipe.ingredients) if isinstance(recipe.ingredients, str) else recipe.ingredients
-        steps = json.loads(recipe.steps) if isinstance(recipe.steps, str) else recipe.steps
+        # Get ingredients and steps
+        ingredients = recipe.get('ingredients', [])
+        steps = recipe.get('steps', [])
         
         # Create description from first few ingredients
         description = "Recipe with "
@@ -587,12 +651,12 @@ class SharingService:
         
         # Build recipe URL
         recipe_url = f"{base_url}/recipes/{recipe_id}"
-        if recipe.visibility in ['public', 'unlisted']:
+        if recipe.get('visibility') in ['public', 'unlisted']:
             recipe_url = f"{base_url}/recipes/public/{recipe_id}"
         
         return {
-            'title': recipe.title,
+            'title': recipe.get('title'),
             'description': description,
-            'image_url': recipe.image_url,
+            'image_url': recipe.get('image_url'),
             'url': recipe_url
         }

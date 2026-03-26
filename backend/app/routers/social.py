@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Response
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Optional
 from io import BytesIO
-from app.database import get_db
+from app.database import mongodb
 from app.schemas import (
     RecipeResponse, 
     PublicRecipeResponse, 
@@ -15,12 +15,23 @@ from app.schemas import (
 )
 from app.services.sharing_service import SharingService
 from app.services.auth_service import AuthService
+from app.repositories.recipe_repository import RecipeRepository
+from app.repositories.user_repository import UserRepository
+from app.repositories.recipe_like_repository import RecipeLikeRepository
+from app.repositories.recipe_comment_repository import RecipeCommentRepository
+from app.repositories.user_follow_repository import UserFollowRepository
 from app.config import settings
+from app.utils.objectid_utils import validate_objectid
 
 router = APIRouter(prefix="/api", tags=["social"])
 
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
+async def get_mongodb() -> AsyncIOMotorDatabase:
+    """Get MongoDB database instance."""
+    return await mongodb.get_database()
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -42,23 +53,38 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
     return user_id
 
 
+def get_sharing_service(db: AsyncIOMotorDatabase) -> SharingService:
+    """Initialize and return SharingService with all required repositories."""
+    recipe_repo = RecipeRepository(db)
+    user_repo = UserRepository(db)
+    like_repo = RecipeLikeRepository(db)
+    comment_repo = RecipeCommentRepository(db)
+    follow_repo = UserFollowRepository(db)
+    
+    return SharingService(recipe_repo, user_repo, like_repo, comment_repo, follow_repo)
+
+
 # ============================================================================
 # Subtask 20.1: Visibility and Discovery Endpoints
 # ============================================================================
 
 @router.patch("/recipes/{recipe_id}/visibility", response_model=dict)
-def set_recipe_visibility(
-    recipe_id: int,
+async def set_recipe_visibility(
+    recipe_id: str,
     visibility_data: VisibilityUpdate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Set recipe visibility (private, public, unlisted).
     Requirements: 29.1, 29.2
     """
-    recipe = SharingService.set_recipe_visibility(
-        db, recipe_id, visibility_data.visibility, user_id
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    sharing_service = get_sharing_service(db)
+    recipe = await sharing_service.set_recipe_visibility(
+        recipe_id, visibility_data.visibility, user_id
     )
     
     if not recipe:
@@ -68,21 +94,22 @@ def set_recipe_visibility(
             headers={"error_code": "RECIPE_NOT_FOUND"}
         )
     
-    return {"id": recipe.id, "visibility": recipe.visibility}
+    return {"id": str(recipe['_id']), "visibility": recipe['visibility']}
 
 
 @router.get("/recipes/discover", response_model=dict)
-def discover_recipes(
+async def discover_recipes(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search query"),
-    db: Session = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Get paginated discovery feed of public recipes.
     Requirements: 30.1, 30.4
     """
-    recipes, total = SharingService.get_public_recipes(db, page, limit, search)
+    sharing_service = get_sharing_service(db)
+    recipes, total = await sharing_service.get_public_recipes(page, limit, search)
     
     return {
         "recipes": [RecipeResponse.from_orm(r) for r in recipes],
@@ -93,15 +120,19 @@ def discover_recipes(
 
 
 @router.get("/recipes/public/{recipe_id}", response_model=dict)
-def get_public_recipe(
-    recipe_id: int,
-    db: Session = Depends(get_db)
+async def get_public_recipe(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Get public recipe with author info, likes count, and comments.
     Requirements: 30.1, 30.2, 30.3
     """
-    result = SharingService.get_public_recipe_by_id(db, recipe_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    sharing_service = get_sharing_service(db)
+    result = await sharing_service.get_public_recipe_by_id(recipe_id)
     
     if not result:
         raise HTTPException(
@@ -113,9 +144,9 @@ def get_public_recipe(
     return {
         "recipe": RecipeResponse.from_orm(result['recipe']),
         "author": {
-            "id": result['author'].id,
-            "username": result['author'].username,
-            "email": result['author'].email
+            "id": str(result['author']['_id']),
+            "username": result['author']['username'],
+            "email": result['author'].get('email', '')
         },
         "likes_count": result['likes_count'],
         "comments": [CommentResponse.from_orm(c) for c in result['comments']]
@@ -127,16 +158,20 @@ def get_public_recipe(
 # ============================================================================
 
 @router.post("/recipes/{recipe_id}/fork", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
-def fork_recipe(
-    recipe_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def fork_recipe(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Fork a public or unlisted recipe to user's collection.
     Requirements: 33.1
     """
-    forked_recipe = SharingService.fork_recipe(db, recipe_id, user_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    sharing_service = get_sharing_service(db)
+    forked_recipe = await sharing_service.fork_recipe(recipe_id, user_id)
     
     if not forked_recipe:
         raise HTTPException(
@@ -153,16 +188,20 @@ def fork_recipe(
 # ============================================================================
 
 @router.post("/recipes/{recipe_id}/like", response_model=dict)
-def like_recipe(
-    recipe_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def like_recipe(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Like a recipe.
     Requirements: 32.1, 32.2
     """
-    liked, likes_count = SharingService.like_recipe(db, recipe_id, user_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    sharing_service = get_sharing_service(db)
+    liked, likes_count = await sharing_service.like_recipe(recipe_id, user_id)
     
     if not liked and likes_count == 0:
         raise HTTPException(
@@ -175,32 +214,40 @@ def like_recipe(
 
 
 @router.delete("/recipes/{recipe_id}/like", response_model=dict)
-def unlike_recipe(
-    recipe_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def unlike_recipe(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Unlike a recipe.
     Requirements: 32.1, 32.2
     """
-    liked, likes_count = SharingService.unlike_recipe(db, recipe_id, user_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    sharing_service = get_sharing_service(db)
+    liked, likes_count = await sharing_service.unlike_recipe(recipe_id, user_id)
     
     return {"liked": liked, "likes_count": likes_count}
 
 
 @router.post("/recipes/{recipe_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
-def add_comment(
-    recipe_id: int,
+async def add_comment(
+    recipe_id: str,
     comment_data: CommentCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Add a comment to a recipe.
     Requirements: 32.3
     """
-    comment = SharingService.add_comment(db, recipe_id, user_id, comment_data.comment_text)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    sharing_service = get_sharing_service(db)
+    comment = await sharing_service.add_comment(recipe_id, user_id, comment_data.comment_text)
     
     if not comment:
         raise HTTPException(
@@ -217,16 +264,20 @@ def add_comment(
 # ============================================================================
 
 @router.post("/users/{user_id}/follow", response_model=dict)
-def follow_user(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user_id: int = Depends(get_current_user_id)
+async def follow_user(
+    user_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    current_user_id: str = Depends(get_current_user_id)
 ):
     """
     Follow a user.
     Requirements: 31.1, 31.2
     """
-    following, followers_count = SharingService.follow_user(db, current_user_id, user_id)
+    # Validate ObjectId
+    validate_objectid(user_id, "user_id")
+    
+    sharing_service = get_sharing_service(db)
+    following, followers_count = await sharing_service.follow_user(current_user_id, user_id)
     
     if not following and followers_count == 0:
         if current_user_id == user_id:
@@ -246,34 +297,42 @@ def follow_user(
 
 
 @router.delete("/users/{user_id}/follow", response_model=dict)
-def unfollow_user(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user_id: int = Depends(get_current_user_id)
+async def unfollow_user(
+    user_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    current_user_id: str = Depends(get_current_user_id)
 ):
     """
     Unfollow a user.
     Requirements: 31.1, 31.2
     """
-    following, followers_count = SharingService.unfollow_user(db, current_user_id, user_id)
+    # Validate ObjectId
+    validate_objectid(user_id, "user_id")
+    
+    sharing_service = get_sharing_service(db)
+    following, followers_count = await sharing_service.unfollow_user(current_user_id, user_id)
     
     return {"following": following, "followers_count": followers_count}
 
 
 @router.get("/users/{user_id}/followers", response_model=dict)
-def get_followers(
-    user_id: int,
-    db: Session = Depends(get_db)
+async def get_followers(
+    user_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Get list of users following the specified user.
     Requirements: 31.3, 31.4
     """
-    followers = SharingService.get_followers(db, user_id)
+    # Validate ObjectId
+    validate_objectid(user_id, "user_id")
+    
+    sharing_service = get_sharing_service(db)
+    followers = await sharing_service.get_followers(user_id)
     
     return {
         "followers": [
-            {"id": u.id, "username": u.username, "email": u.email}
+            {"id": str(u['_id']), "username": u['username'], "email": u.get('email', '')}
             for u in followers
         ],
         "count": len(followers)
@@ -281,19 +340,23 @@ def get_followers(
 
 
 @router.get("/users/{user_id}/following", response_model=dict)
-def get_following(
-    user_id: int,
-    db: Session = Depends(get_db)
+async def get_following(
+    user_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Get list of users that the specified user is following.
     Requirements: 31.3, 31.4
     """
-    following = SharingService.get_following(db, user_id)
+    # Validate ObjectId
+    validate_objectid(user_id, "user_id")
+    
+    sharing_service = get_sharing_service(db)
+    following = await sharing_service.get_following(user_id)
     
     return {
         "following": [
-            {"id": u.id, "username": u.username, "email": u.email}
+            {"id": str(u['_id']), "username": u['username'], "email": u.get('email', '')}
             for u in following
         ],
         "count": len(following)
@@ -305,10 +368,10 @@ def get_following(
 # ============================================================================
 
 @router.post("/recipes/import-url", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
-def import_recipe_from_url(
+async def import_recipe_from_url(
     url_data: dict,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Import recipe from URL.
@@ -322,7 +385,8 @@ def import_recipe_from_url(
             headers={"error_code": "URL_REQUIRED"}
         )
     
-    recipe = SharingService.import_recipe_from_url(db, url, user_id)
+    sharing_service = get_sharing_service(db)
+    recipe = await sharing_service.import_recipe_from_url(url, user_id)
     
     if not recipe:
         raise HTTPException(
@@ -335,20 +399,23 @@ def import_recipe_from_url(
 
 
 @router.get("/recipes/{recipe_id}/qrcode")
-def get_recipe_qrcode(
-    recipe_id: int,
-    db: Session = Depends(get_db)
+async def get_recipe_qrcode(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Generate QR code image for recipe.
     Requirements: 36.1
     """
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     # Build recipe URL (use public URL if available)
     base_url = getattr(settings, 'base_url', 'http://localhost:3000')
     recipe_url = f"{base_url}/recipes/{recipe_id}"
     
     # Generate QR code
-    qr_bytes = SharingService.generate_qr_code(recipe_url)
+    sharing_service = get_sharing_service(db)
+    qr_bytes = sharing_service.generate_qr_code(recipe_url)
     
     # Return as PNG image
     return StreamingResponse(
@@ -359,16 +426,20 @@ def get_recipe_qrcode(
 
 
 @router.get("/recipes/{recipe_id}/share-metadata", response_model=ShareMetadataResponse)
-def get_share_metadata(
-    recipe_id: int,
-    db: Session = Depends(get_db)
+async def get_share_metadata(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """
     Get social media share metadata for recipe.
     Requirements: 35.1
     """
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     base_url = getattr(settings, 'base_url', 'http://localhost:3000')
-    metadata = SharingService.get_share_metadata(db, recipe_id, base_url)
+    
+    sharing_service = get_sharing_service(db)
+    metadata = await sharing_service.get_share_metadata(recipe_id, base_url)
     
     if not metadata:
         raise HTTPException(

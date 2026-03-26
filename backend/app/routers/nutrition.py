@@ -1,20 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import Dict, Optional
 from datetime import date
-from app.database import get_db
+from app.database import mongodb
 from app.schemas import (
     NutritionCreate, NutritionUpdate, NutritionResponse,
     DietaryLabelsRequest, AllergensRequest, NutritionSummaryResponse
 )
 from app.services.nutrition_service import NutritionTracker
 from app.services.auth_service import AuthService
-from app.models import Recipe
+from app.utils.objectid_utils import validate_objectid
+from app.repositories.recipe_repository import RecipeRepository
+from app.repositories.meal_plan_repository import MealPlanRepository
 
 router = APIRouter(prefix="/api", tags=["nutrition"])
 
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
+async def get_mongodb() -> AsyncIOMotorDatabase:
+    """Get MongoDB database instance."""
+    return await mongodb.get_database()
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -41,26 +48,32 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
 # ============================================================================
 
 @router.post("/recipes/{recipe_id}/nutrition", response_model=NutritionResponse, status_code=status.HTTP_201_CREATED)
-def add_nutrition_facts(
-    recipe_id: int,
+async def add_nutrition_facts(
+    recipe_id: str,
     nutrition_data: NutritionCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Add nutrition facts to a recipe.
     Requirements: 24.1, 24.4, 25.3
     """
-    nutrition = NutritionTracker.add_nutrition_facts(db, recipe_id, nutrition_data, user_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     
-    if not nutrition:
+    # Initialize repositories
+    recipe_repository = RecipeRepository(db)
+    meal_plan_repository = MealPlanRepository(db)
+    nutrition_tracker = NutritionTracker(recipe_repository, meal_plan_repository)
+    
+    # Add nutrition facts
+    recipe = await nutrition_tracker.add_nutrition_facts(recipe_id, nutrition_data, user_id)
+    
+    if not recipe:
         # Check if recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe_doc = await recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe_doc or str(recipe_doc["user_id"]) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Recipe not found or you don't have permission",
@@ -74,63 +87,75 @@ def add_nutrition_facts(
             headers={"error_code": "INVALID_NUTRITION_VALUES"}
         )
     
-    return nutrition
+    # Return nutrition facts from the recipe
+    return recipe.get("nutrition_facts")
 
 
 @router.put("/recipes/{recipe_id}/nutrition", response_model=NutritionResponse)
-def update_nutrition_facts(
-    recipe_id: int,
+async def update_nutrition_facts(
+    recipe_id: str,
     nutrition_data: NutritionUpdate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Update nutrition facts for a recipe.
     Requirements: 24.1, 24.4, 25.3
     """
-    nutrition = NutritionTracker.update_nutrition_facts(db, recipe_id, nutrition_data, user_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     
-    if not nutrition:
+    # Initialize repositories
+    recipe_repository = RecipeRepository(db)
+    meal_plan_repository = MealPlanRepository(db)
+    nutrition_tracker = NutritionTracker(recipe_repository, meal_plan_repository)
+    
+    # Update nutrition facts
+    recipe = await nutrition_tracker.update_nutrition_facts(recipe_id, nutrition_data, user_id)
+    
+    if not recipe:
         # Check if recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe_doc = await recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe_doc or str(recipe_doc["user_id"]) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Recipe not found or you don't have permission",
                 headers={"error_code": "RECIPE_NOT_FOUND"}
             )
         
-        # Nutrition facts don't exist
+        # Nutrition facts don't exist or validation failed
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Nutrition facts not found. Use POST to create.",
-            headers={"error_code": "NUTRITION_NOT_FOUND"}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nutrition values must be non-negative",
+            headers={"error_code": "INVALID_NUTRITION_VALUES"}
         )
     
-    return nutrition
+    return recipe.get("nutrition_facts")
 
 
 @router.get("/recipes/{recipe_id}/nutrition")
-def get_nutrition_facts(
-    recipe_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def get_nutrition_facts(
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Get nutrition facts for a recipe (total and per-serving).
     Requirements: 24.1, 24.4, 25.3
     """
-    # Verify recipe exists and belongs to user
-    recipe = db.query(Recipe).filter(
-        Recipe.id == recipe_id,
-        Recipe.user_id == user_id
-    ).first()
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
     
-    if not recipe:
+    # Initialize repositories
+    recipe_repository = RecipeRepository(db)
+    meal_plan_repository = MealPlanRepository(db)
+    nutrition_tracker = NutritionTracker(recipe_repository, meal_plan_repository)
+    
+    # Verify recipe exists and belongs to user
+    recipe = await recipe_repository.find_by_id(recipe_id)
+    
+    if not recipe or str(recipe["user_id"]) != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recipe not found or you don't have permission",
@@ -138,7 +163,7 @@ def get_nutrition_facts(
         )
     
     # Get nutrition facts
-    nutrition = NutritionTracker.get_nutrition_facts(db, recipe_id)
+    nutrition = await nutrition_tracker.get_nutrition_facts(recipe_id)
     
     if not nutrition:
         return {
@@ -147,8 +172,8 @@ def get_nutrition_facts(
         }
     
     # Calculate per-serving values
-    servings = recipe.servings if recipe.servings else 1
-    per_serving = NutritionTracker.calculate_per_serving(nutrition, servings)
+    servings = recipe.get("servings", 1) or 1
+    per_serving = nutrition_tracker.calculate_per_serving(nutrition, servings)
     
     return {
         "nutrition_facts": nutrition,
@@ -161,26 +186,32 @@ def get_nutrition_facts(
 # ============================================================================
 
 @router.post("/recipes/{recipe_id}/dietary-labels")
-def set_dietary_labels(
-    recipe_id: int,
+async def set_dietary_labels(
+    recipe_id: str,
     labels_data: DietaryLabelsRequest,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Set dietary labels for a recipe.
     Requirements: 26.1, 27.1
     """
-    labels = NutritionTracker.add_dietary_labels(db, recipe_id, labels_data.labels, user_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    # Initialize repositories
+    recipe_repository = RecipeRepository(db)
+    meal_plan_repository = MealPlanRepository(db)
+    nutrition_tracker = NutritionTracker(recipe_repository, meal_plan_repository)
+    
+    # Add dietary labels
+    labels = await nutrition_tracker.add_dietary_labels(recipe_id, labels_data.labels, user_id)
     
     if labels is None:
         # Check if recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe = await recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe or str(recipe["user_id"]) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Recipe not found or you don't have permission",
@@ -198,26 +229,32 @@ def set_dietary_labels(
 
 
 @router.post("/recipes/{recipe_id}/allergens")
-def set_allergen_warnings(
-    recipe_id: int,
+async def set_allergen_warnings(
+    recipe_id: str,
     allergens_data: AllergensRequest,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Set allergen warnings for a recipe.
     Requirements: 26.1, 27.1
     """
-    allergens = NutritionTracker.add_allergen_warnings(db, recipe_id, allergens_data.allergens, user_id)
+    # Validate ObjectId
+    validate_objectid(recipe_id, "recipe_id")
+    
+    # Initialize repositories
+    recipe_repository = RecipeRepository(db)
+    meal_plan_repository = MealPlanRepository(db)
+    nutrition_tracker = NutritionTracker(recipe_repository, meal_plan_repository)
+    
+    # Add allergen warnings
+    allergens = await nutrition_tracker.add_allergen_warnings(recipe_id, allergens_data.allergens, user_id)
     
     if allergens is None:
         # Check if recipe exists and belongs to user
-        recipe = db.query(Recipe).filter(
-            Recipe.id == recipe_id,
-            Recipe.user_id == user_id
-        ).first()
+        recipe = await recipe_repository.find_by_id(recipe_id)
         
-        if not recipe:
+        if not recipe or str(recipe["user_id"]) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Recipe not found or you don't have permission",
@@ -239,11 +276,11 @@ def set_allergen_warnings(
 # ============================================================================
 
 @router.get("/meal-plans/nutrition-summary")
-def get_meal_plan_nutrition_summary(
+async def get_meal_plan_nutrition_summary(
     start_date: str,
     end_date: str,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Get nutrition summary for a meal plan date range.
@@ -268,7 +305,12 @@ def get_meal_plan_nutrition_summary(
             headers={"error_code": "INVALID_DATE_RANGE"}
         )
     
+    # Initialize repositories
+    recipe_repository = RecipeRepository(db)
+    meal_plan_repository = MealPlanRepository(db)
+    nutrition_tracker = NutritionTracker(recipe_repository, meal_plan_repository)
+    
     # Get nutrition summary
-    summary = NutritionTracker.get_meal_plan_nutrition_summary(db, user_id, start, end)
+    summary = await nutrition_tracker.get_meal_plan_nutrition_summary(user_id, start, end)
     
     return summary

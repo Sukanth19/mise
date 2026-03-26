@@ -18,7 +18,7 @@ client = TestClient(app)
 def auth_headers(db):
     """Create a test user and return auth headers."""
     user = AuthService.create_user(db, f"testuser_{id(db)}", "password123")
-    token = AuthService.create_token(user.id)
+    token = AuthService.create_access_token(user.id)
     return {"Authorization": f"Bearer {token}"}, user.id
 
 
@@ -399,7 +399,7 @@ def test_access_other_user_list(db, test_recipe):
     """Test that users cannot access other users' shopping lists."""
     # Create first user and shopping list
     user1 = AuthService.create_user(db, f"user1_{id(db)}", "password123")
-    token1 = AuthService.create_token(user1.id)
+    token1 = AuthService.create_access_token(user1.id)
     headers1 = {"Authorization": f"Bearer {token1}"}
     
     recipe_data = RecipeCreate(
@@ -422,7 +422,7 @@ def test_access_other_user_list(db, test_recipe):
     
     # Create second user
     user2 = AuthService.create_user(db, f"user2_{id(db)}", "password123")
-    token2 = AuthService.create_token(user2.id)
+    token2 = AuthService.create_access_token(user2.id)
     headers2 = {"Authorization": f"Bearer {token2}"}
     
     # Try to access first user's list

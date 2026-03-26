@@ -19,7 +19,7 @@ client = TestClient(app)
 def auth_headers(db):
     """Create a test user and return auth headers."""
     user = AuthService.create_user(db, f"testuser_{id(db)}", "password123")
-    token = AuthService.create_token(user.id)
+    token = AuthService.create_access_token(user.id)
     return {"Authorization": f"Bearer {token}"}, user.id
 
 

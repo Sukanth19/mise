@@ -1,0 +1,118 @@
+{
+  "report_date": "2026-03-27T00:26:03.353074",
+  "database_type": "sqlite",
+  "requirements_validated": [
+    "9.1: Indexes on user_id for all tables that reference users",
+    "9.2: FULLTEXT indexes on Recipe.title and Recipe.ingredients",
+    "9.3: Compound indexes for frequently used query combinations",
+    "9.4: Efficient JOIN operations",
+    "9.5: Query result limits (default 20, max 100)",
+    "9.6: SELECT with specific columns when full rows not needed",
+    "9.7: Appropriate JOIN types to minimize query time"
+  ],
+  "performance_benchmarks": {
+    "user_recipes_query": {
+      "description": "Fetch user's recipes with pagination",
+      "expected_time_ms": 100,
+      "validates": [
+        "9.1",
+        "9.5"
+      ],
+      "query_pattern": "SELECT * FROM recipes WHERE user_id = ? ORDER BY created_at DESC LIMIT 20"
+    },
+    "recipe_search": {
+      "description": "Full-text search on recipe title and ingredients",
+      "expected_time_ms": 150,
+      "validates": [
+        "9.2"
+      ],
+      "query_pattern": "SELECT * FROM recipes WHERE MATCH(title, ingredients) AGAINST(? IN NATURAL LANGUAGE MODE)"
+    },
+    "collection_with_recipes": {
+      "description": "Load collection with all recipes via JOIN",
+      "expected_time_ms": 100,
+      "validates": [
+        "9.4",
+        "9.7"
+      ],
+      "query_pattern": "SELECT * FROM collections JOIN collection_recipes ON ... JOIN recipes ON ..."
+    },
+    "meal_plan_date_range": {
+      "description": "Fetch meal plans for date range with compound index",
+      "expected_time_ms": 100,
+      "validates": [
+        "9.1",
+        "9.3"
+      ],
+      "query_pattern": "SELECT * FROM meal_plans WHERE user_id = ? AND meal_date BETWEEN ? AND ?"
+    },
+    "aggregate_ratings": {
+      "description": "Calculate average rating with specific columns",
+      "expected_time_ms": 50,
+      "validates": [
+        "9.6"
+      ],
+      "query_pattern": "SELECT AVG(rating), COUNT(*) FROM recipe_ratings WHERE recipe_id = ?"
+    }
+  },
+  "index_verification": {
+    "user_id_indexes": {
+      "tables": [
+        "recipes",
+        "collections",
+        "meal_plans",
+        "recipe_ratings",
+        "recipe_notes",
+        "shopping_lists"
+      ],
+      "validates": "9.1",
+      "verification_method": "EXPLAIN query output should show index usage"
+    },
+    "fulltext_indexes": {
+      "tables": [
+        "recipes"
+      ],
+      "columns": [
+        "title",
+        "ingredients"
+      ],
+      "validates": "9.2",
+      "verification_method": "SHOW INDEX FROM recipes should show FULLTEXT index"
+    },
+    "compound_indexes": {
+      "recipes": [
+        "(user_id, created_at)"
+      ],
+      "collections": [
+        "(user_id, created_at)"
+      ],
+      "meal_plans": [
+        "(user_id, meal_date)"
+      ],
+      "validates": "9.3",
+      "verification_method": "EXPLAIN should show compound index usage for multi-column queries"
+    }
+  },
+  "optimization_strategies": {
+    "pagination": {
+      "strategy": "Use LIMIT and OFFSET with appropriate defaults",
+      "default_limit": 20,
+      "max_limit": 100,
+      "validates": "9.5"
+    },
+    "column_selection": {
+      "strategy": "SELECT specific columns instead of SELECT *",
+      "example": "SELECT id, title, user_id FROM recipes instead of SELECT * FROM recipes",
+      "validates": "9.6"
+    },
+    "join_optimization": {
+      "strategy": "Use appropriate JOIN types and eager loading",
+      "techniques": [
+        "INNER JOIN for required relationships",
+        "LEFT JOIN for optional relationships",
+        "SQLAlchemy joinedload for eager loading"
+      ],
+      "validates": "9.7"
+    }
+  }
+}

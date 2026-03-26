@@ -1,16 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Body
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List
-from app.database import get_db
+from app.database import mongodb
 from app.schemas import CollectionCreate, CollectionUpdate, CollectionResponse, RecipeResponse
 from app.services.collection_service import CollectionManager
 from app.services.auth_service import AuthService
-from app.models import CollectionRecipe, Recipe
+from app.repositories.collection_repository import CollectionRepository
+from app.repositories.recipe_repository import RecipeRepository
+from app.repositories.user_repository import UserRepository
+from app.utils.objectid_utils import validate_objectid, validate_objectid_list
 
 router = APIRouter(prefix="/api/collections", tags=["collections"])
 
 
-def get_current_user_id(authorization: str = Header(...)) -> int:
+async def get_mongodb() -> AsyncIOMotorDatabase:
+    """Get MongoDB database instance."""
+    return await mongodb.get_database()
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
     """Extract and verify user ID from JWT token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -33,14 +41,18 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
 
 
 @router.post("", response_model=CollectionResponse, status_code=status.HTTP_201_CREATED)
-def create_collection(
+async def create_collection(
     collection_data: CollectionCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Create a new collection for the authenticated user."""
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
     try:
-        collection = CollectionManager.create_collection(db, user_id, collection_data)
+        collection = await collection_manager.create_collection(user_id, collection_data)
         return collection
     except ValueError as e:
         raise HTTPException(
@@ -50,24 +62,35 @@ def create_collection(
         )
 
 
-@router.get("", response_model=List[CollectionResponse])
-def get_collections(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+@router.get("", response_model=dict)
+async def get_collections(
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Get all collections for the authenticated user."""
-    collections = CollectionManager.get_user_collections(db, user_id)
-    return collections
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    collections = await collection_manager.get_user_collections(user_id)
+    return {"collections": collections}
 
 
 @router.get("/{collection_id}")
-def get_collection(
-    collection_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def get_collection(
+    collection_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Get a specific collection by ID with recipes."""
-    collection = CollectionManager.get_collection_by_id(db, collection_id, user_id)
+    # Validate ObjectId
+    validate_objectid(collection_id, "collection_id")
+    
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    collection = await collection_manager.get_collection_by_id(collection_id, user_id)
     
     if not collection:
         raise HTTPException(
@@ -76,30 +99,30 @@ def get_collection(
             headers={"error_code": "COLLECTION_NOT_FOUND"}
         )
     
-    # Get recipes in this collection
-    recipe_associations = db.query(CollectionRecipe).filter(
-        CollectionRecipe.collection_id == collection_id
-    ).all()
-    
-    recipe_ids = [assoc.recipe_id for assoc in recipe_associations]
+    # Get recipes in this collection (recipe_ids are embedded in collection)
+    recipe_ids = collection.get("recipe_ids", [])
     recipes = []
     
     if recipe_ids:
-        recipes = db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()
-        recipes = [RecipeResponse.from_orm(recipe) for recipe in recipes]
+        # Convert ObjectIds to strings for repository query
+        recipe_id_strs = [str(rid) for rid in recipe_ids]
+        for recipe_id_str in recipe_id_strs:
+            recipe = await recipe_repo.find_by_id(recipe_id_str)
+            if recipe:
+                recipes.append(RecipeResponse.from_orm(recipe))
     
     # Convert collection to dict and add recipes
     collection_dict = {
-        "id": collection.id,
-        "user_id": collection.user_id,
-        "name": collection.name,
-        "description": collection.description,
-        "cover_image_url": collection.cover_image_url,
-        "parent_collection_id": collection.parent_collection_id,
-        "nesting_level": collection.nesting_level,
-        "share_token": collection.share_token,
-        "created_at": collection.created_at,
-        "updated_at": collection.updated_at,
+        "id": str(collection["_id"]),
+        "user_id": str(collection["user_id"]),
+        "name": collection["name"],
+        "description": collection.get("description"),
+        "cover_image_url": collection.get("cover_image_url"),
+        "parent_collection_id": str(collection["parent_collection_id"]) if collection.get("parent_collection_id") else None,
+        "nesting_level": collection.get("nesting_level", 0),
+        "share_token": collection.get("share_token"),
+        "created_at": collection["created_at"],
+        "updated_at": collection["updated_at"],
         "recipes": recipes
     }
     
@@ -107,14 +130,21 @@ def get_collection(
 
 
 @router.put("/{collection_id}", response_model=CollectionResponse)
-def update_collection(
-    collection_id: int,
+async def update_collection(
+    collection_id: str,
     collection_data: CollectionUpdate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Update a collection with ownership validation."""
-    collection = CollectionManager.update_collection(db, collection_id, user_id, collection_data)
+    # Validate ObjectId
+    validate_objectid(collection_id, "collection_id")
+    
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    collection = await collection_manager.update_collection(collection_id, user_id, collection_data)
     
     if not collection:
         raise HTTPException(
@@ -127,13 +157,20 @@ def update_collection(
 
 
 @router.delete("/{collection_id}", status_code=status.HTTP_200_OK)
-def delete_collection(
-    collection_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def delete_collection(
+    collection_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Delete a collection with ownership validation. Cascades to sub-collections."""
-    success = CollectionManager.delete_collection(db, collection_id, user_id)
+    # Validate ObjectId
+    validate_objectid(collection_id, "collection_id")
+    
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    success = await collection_manager.delete_collection(collection_id, user_id)
     
     if not success:
         raise HTTPException(
@@ -146,16 +183,24 @@ def delete_collection(
 
 
 @router.post("/{collection_id}/recipes")
-def add_recipes_to_collection(
-    collection_id: int,
-    recipe_ids: List[int] = Body(..., embed=True),
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def add_recipes_to_collection(
+    collection_id: str,
+    recipe_ids: List[str] = Body(..., embed=True),
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Add multiple recipes to a collection."""
+    # Validate ObjectIds
+    validate_objectid(collection_id, "collection_id")
+    validate_objectid_list(recipe_ids, "recipe_ids")
+    
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
     try:
-        added_count = CollectionManager.add_recipes_to_collection(
-            db, collection_id, recipe_ids, user_id
+        added_count = await collection_manager.add_recipes_to_collection(
+            collection_id, recipe_ids, user_id
         )
         return {"added_count": added_count}
     except ValueError as e:
@@ -167,15 +212,23 @@ def add_recipes_to_collection(
 
 
 @router.delete("/{collection_id}/recipes/{recipe_id}", status_code=status.HTTP_200_OK)
-def remove_recipe_from_collection(
-    collection_id: int,
-    recipe_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def remove_recipe_from_collection(
+    collection_id: str,
+    recipe_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Remove a recipe from a collection."""
-    success = CollectionManager.remove_recipe_from_collection(
-        db, collection_id, recipe_id, user_id
+    # Validate ObjectIds
+    validate_objectid(collection_id, "collection_id")
+    validate_objectid(recipe_id, "recipe_id")
+    
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    success = await collection_manager.remove_recipe_from_collection(
+        collection_id, recipe_id, user_id
     )
     
     if not success:
@@ -189,13 +242,20 @@ def remove_recipe_from_collection(
 
 
 @router.post("/{collection_id}/share")
-def generate_share_link(
-    collection_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def generate_share_link(
+    collection_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Generate a share link for a collection."""
-    share_token = CollectionManager.generate_share_token(db, collection_id, user_id)
+    # Validate ObjectId
+    validate_objectid(collection_id, "collection_id")
+    
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    share_token = await collection_manager.generate_share_token(collection_id, user_id)
     
     if not share_token:
         raise HTTPException(
@@ -211,13 +271,20 @@ def generate_share_link(
 
 
 @router.delete("/{collection_id}/share", status_code=status.HTTP_200_OK)
-def revoke_sharing(
-    collection_id: int,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+async def revoke_sharing(
+    collection_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+    user_id: str = Depends(get_current_user_id)
 ):
     """Revoke sharing for a collection."""
-    success = CollectionManager.revoke_share_token(db, collection_id, user_id)
+    # Validate ObjectId
+    validate_objectid(collection_id, "collection_id")
+    
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    success = await collection_manager.revoke_share_token(collection_id, user_id)
     
     if not success:
         raise HTTPException(
@@ -230,12 +297,16 @@ def revoke_sharing(
 
 
 @router.get("/shared/{share_token}")
-def get_shared_collection(
+async def get_shared_collection(
     share_token: str,
-    db: Session = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_mongodb)
 ):
     """Access a shared collection (public, no auth required)."""
-    collection = CollectionManager.get_shared_collection(db, share_token)
+    collection_repo = CollectionRepository(db)
+    recipe_repo = RecipeRepository(db)
+    collection_manager = CollectionManager(collection_repo, recipe_repo)
+    
+    collection = await collection_manager.get_shared_collection(share_token)
     
     if not collection:
         raise HTTPException(
@@ -244,30 +315,30 @@ def get_shared_collection(
             headers={"error_code": "COLLECTION_NOT_FOUND"}
         )
     
-    # Get recipes in this collection
-    recipe_associations = db.query(CollectionRecipe).filter(
-        CollectionRecipe.collection_id == collection.id
-    ).all()
-    
-    recipe_ids = [assoc.recipe_id for assoc in recipe_associations]
+    # Get recipes in this collection (recipe_ids are embedded in collection)
+    recipe_ids = collection.get("recipe_ids", [])
     recipes = []
     
     if recipe_ids:
-        recipes = db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()
-        recipes = [RecipeResponse.from_orm(recipe) for recipe in recipes]
+        # Convert ObjectIds to strings for repository query
+        recipe_id_strs = [str(rid) for rid in recipe_ids]
+        for recipe_id_str in recipe_id_strs:
+            recipe = await recipe_repo.find_by_id(recipe_id_str)
+            if recipe:
+                recipes.append(RecipeResponse.from_orm(recipe))
     
     # Convert collection to dict and add recipes
     collection_dict = {
-        "id": collection.id,
-        "user_id": collection.user_id,
-        "name": collection.name,
-        "description": collection.description,
-        "cover_image_url": collection.cover_image_url,
-        "parent_collection_id": collection.parent_collection_id,
-        "nesting_level": collection.nesting_level,
-        "share_token": collection.share_token,
-        "created_at": collection.created_at,
-        "updated_at": collection.updated_at,
+        "id": str(collection["_id"]),
+        "user_id": str(collection["user_id"]),
+        "name": collection["name"],
+        "description": collection.get("description"),
+        "cover_image_url": collection.get("cover_image_url"),
+        "parent_collection_id": str(collection["parent_collection_id"]) if collection.get("parent_collection_id") else None,
+        "nesting_level": collection.get("nesting_level", 0),
+        "share_token": collection.get("share_token"),
+        "created_at": collection["created_at"],
+        "updated_at": collection["updated_at"],
         "recipes": recipes
     }
     
