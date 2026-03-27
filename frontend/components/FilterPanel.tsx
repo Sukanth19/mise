@@ -335,10 +335,10 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleTagToggle(tag)}
-                        className={`px-4 py-2 text-sm font-bold uppercase rounded-none transition-colors ${
+                        className={`px-4 py-2 text-sm font-bold uppercase rounded-none transition-colors comic-border ${
                           selectedTags.includes(tag)
-                            ? 'bg-primary text-primary-foreground comic-border shadow-md'
-                            : 'bg-muted text-muted-foreground border-2 border-border hover:bg-muted/80'
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-muted text-muted-foreground hover:bg-primary/10'
                         }`}
                       >
                         {tag}
@@ -402,10 +402,10 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleDietaryLabelToggle(label)}
-                      className={`px-4 py-2 text-sm font-bold uppercase rounded-none transition-colors ${
+                      className={`px-4 py-2 text-sm font-bold uppercase rounded-none transition-colors comic-border ${
                         selectedDietaryLabels.includes(label)
-                          ? 'bg-success text-success-foreground comic-border shadow-md'
-                          : 'bg-muted text-muted-foreground border-2 border-border hover:bg-muted/80'
+                          ? 'bg-success text-success-foreground shadow-md'
+                          : 'bg-muted text-muted-foreground hover:bg-success/10'
                       }`}
                     >
                       {label}
@@ -468,10 +468,10 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleAllergenToggle(allergen)}
-                      className={`px-4 py-2 text-sm font-bold uppercase rounded-none transition-colors ${
+                      className={`px-4 py-2 text-sm font-bold uppercase rounded-none transition-colors comic-border ${
                         selectedAllergens.includes(allergen)
-                          ? 'bg-destructive text-destructive-foreground comic-border shadow-md'
-                          : 'bg-muted text-muted-foreground border-2 border-border hover:bg-muted/80'
+                          ? 'bg-destructive text-destructive-foreground shadow-md'
+                          : 'bg-muted text-muted-foreground hover:bg-destructive/10'
                       }`}
                     >
                       {allergen}
