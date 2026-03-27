@@ -42,7 +42,7 @@ export default function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b-[5px] border-border bg-background comic-border-thick shadow-lg">
+    <header className="sticky top-0 z-50 border-b-[5px] border-border bg-background comic-border-thick shadow-lg peppermint-glow">
       <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
         {/* Logo - Left Side */}
         <Link 
@@ -56,13 +56,23 @@ export default function Header() {
             whileHover={{ rotate: [0, -5, 5, -5, 0] }}
             transition={{ duration: 0.5 }}
           >
+            <defs>
+              <filter id="peppermint-glow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
             <rect width="100" height="100" rx="0" fill="#FF8C00" stroke="#0D0D0D" strokeWidth="4"/>
+            <rect x="2" y="2" width="96" height="96" rx="0" fill="none" stroke="#2D6A4F" strokeWidth="2" opacity="0.6" filter="url(#peppermint-glow)"/>
             <path d="M25 50 L45 30 L48 33 L28 53 Z" fill="#0D0D0D" stroke="#0D0D0D" strokeWidth="2"/>
             <path d="M45 30 L48 27 L51 30 L48 33 Z" fill="#0D0D0D" stroke="#0D0D0D" strokeWidth="2"/>
             <rect x="20" y="55" width="60" height="5" rx="0" fill="#0D0D0D" stroke="#0D0D0D" strokeWidth="2"/>
-            <circle cx="35" cy="70" r="4" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
-            <circle cx="42" cy="68" r="3" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
-            <circle cx="55" cy="69" r="4" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
+            <circle cx="35" cy="70" r="4" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2" filter="url(#peppermint-glow)"/>
+            <circle cx="42" cy="68" r="3" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2" filter="url(#peppermint-glow)"/>
+            <circle cx="55" cy="69" r="4" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2" filter="url(#peppermint-glow)"/>
           </motion.svg>
           <h1 className="text-2xl comic-heading hidden sm:block">MISE</h1>
         </Link>
@@ -78,11 +88,11 @@ export default function Header() {
                 href={link.href}
                 className={`comic-button px-4 py-2 text-sm flex items-center gap-2 transition-all ${
                   isActive
-                    ? 'bg-secondary text-secondary-foreground scale-105'
-                    : 'bg-muted text-muted-foreground hover:bg-secondary/20 hover:scale-105'
+                    ? 'bg-primary text-primary-foreground peppermint-glow scale-105'
+                    : 'bg-primary text-primary-foreground hover:scale-105'
                 }`}
               >
-                <Icon size={18} strokeWidth={2.5} />
+                <Icon size={16} strokeWidth={2.5} />
                 <span className="font-black">{link.label}</span>
               </Link>
             );
@@ -105,7 +115,7 @@ export default function Header() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="comic-button px-6 py-3 rounded-none bg-accent hover:bg-accent-hover text-accent-foreground flex items-center gap-2 hover:scale-105 transition-transform"
+            className="comic-button px-6 py-3 rounded-none bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 hover:scale-105 transition-transform"
           >
             <LogOut size={18} strokeWidth={2.5} />
             <span className="font-black">SIGN OUT</span>
@@ -134,11 +144,11 @@ export default function Header() {
                     onClick={() => setMobileMenuOpen(false)}
                     className={`comic-button px-4 py-3 text-sm flex items-center gap-3 w-full ${
                       isActive
-                        ? 'bg-secondary text-secondary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-secondary/20'
+                        ? 'bg-primary text-primary-foreground peppermint-glow'
+                        : 'bg-primary text-primary-foreground hover:brightness-110'
                     }`}
                   >
-                    <Icon size={20} strokeWidth={2.5} />
+                    <Icon size={18} strokeWidth={2.5} />
                     <span className="font-black">{link.label}</span>
                   </Link>
                 );
@@ -148,7 +158,7 @@ export default function Header() {
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="comic-button px-6 py-3 rounded-none bg-accent hover:bg-accent-hover text-accent-foreground flex items-center gap-2 flex-1"
+                  className="comic-button px-6 py-3 rounded-none bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 flex-1"
                 >
                   <LogOut size={18} strokeWidth={2.5} />
                   <span className="font-black">SIGN OUT</span>

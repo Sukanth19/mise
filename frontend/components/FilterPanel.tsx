@@ -134,7 +134,7 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
     <motion.div 
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="comic-panel bg-card p-6 rounded-none mb-6"
+      className="comic-panel bg-card p-6 rounded-none mb-6 peppermint-glow"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -160,7 +160,7 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
           <motion.button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="comic-button px-4 py-2 bg-secondary text-secondary-foreground text-sm flex items-center gap-2 hover:scale-105 transition-transform"
+            className="comic-button px-4 py-2 bg-secondary text-secondary-foreground text-sm flex items-center gap-2 hover:scale-105 transition-transform peppermint-glow"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -178,7 +178,7 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
       {/* Quick Filters (Always Visible) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Favorites Toggle */}
-        <label className="comic-border p-4 cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3">
+        <label className="comic-border p-4 cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3 peppermint-hover">
           <input
             type="checkbox"
             checked={favorites === true}
@@ -188,13 +188,13 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
           <Heart 
             size={20} 
             strokeWidth={2.5} 
-            className={favorites ? 'fill-warning text-warning' : 'text-muted-foreground'}
+            className={favorites ? 'fill-warning text-warning peppermint-glow' : 'text-muted-foreground'}
           />
           <span className="font-bold uppercase text-sm">FAVORITES ONLY</span>
         </label>
 
         {/* Sort Dropdown */}
-        <div className="comic-border p-4 flex items-center gap-3">
+        <div className="comic-border p-4 flex items-center gap-3 peppermint-hover">
           <SortIcon size={20} strokeWidth={2.5} className="text-muted-foreground" />
           <select
             id="sort-by-select"
@@ -210,7 +210,7 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
           <button
             type="button"
             onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-            className="comic-border bg-muted text-foreground p-2 hover:bg-muted/80 transition-colors"
+            className="comic-border bg-muted text-foreground p-2 hover:bg-muted/80 transition-colors peppermint-glow"
             title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
             aria-label={`Sort order: ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
           >
@@ -223,13 +223,13 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
         </div>
 
         {/* Rating Filter */}
-        <div className="comic-border p-4">
+        <div className="comic-border p-4 peppermint-hover">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Star size={20} strokeWidth={2.5} className="text-warning fill-warning" />
               <span className="font-bold uppercase text-sm">MIN RATING</span>
             </div>
-            <span className="font-black text-lg">{minRating}★</span>
+            <span className="font-black text-lg peppermint-text">{minRating}★</span>
           </div>
           <input
             id="rating-slider"
@@ -337,8 +337,8 @@ export default function FilterPanel({ onFilterChange, availableTags = [] }: Filt
                         onClick={() => handleTagToggle(tag)}
                         className={`px-4 py-2 text-sm font-bold uppercase rounded-none transition-colors comic-border ${
                           selectedTags.includes(tag)
-                            ? 'bg-primary text-primary-foreground shadow-md'
-                            : 'bg-muted text-muted-foreground hover:bg-primary/10'
+                            ? 'bg-primary text-primary-foreground shadow-md peppermint-glow'
+                            : 'bg-muted text-muted-foreground hover:bg-primary/10 peppermint-hover'
                         }`}
                       >
                         {tag}

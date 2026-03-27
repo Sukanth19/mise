@@ -96,8 +96,8 @@ export default function RecipeCard({
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={handleClick}
-      className={`cursor-pointer comic-panel rounded-none overflow-hidden transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none group ${
-        isSelected ? 'ring-4 ring-secondary' : ''
+      className={`cursor-pointer comic-panel rounded-none overflow-hidden transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none group peppermint-hover ${
+        isSelected ? 'ring-4 ring-secondary peppermint-glow-strong' : ''
       }`}
       role="button"
       tabIndex={0}
@@ -127,13 +127,13 @@ export default function RecipeCard({
           <button
             type="button"
             onClick={handleFavoriteClick}
-            className="absolute top-2 right-2 z-10 w-10 h-10 comic-border bg-background/90 hover:bg-background flex items-center justify-center transition-colors"
+            className="absolute top-2 right-2 z-10 w-10 h-10 comic-border bg-background/90 hover:bg-background flex items-center justify-center transition-colors peppermint-glow"
             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Star
               size={20}
               strokeWidth={2.5}
-              className={isFavorite ? 'fill-warning text-warning' : 'text-muted-foreground'}
+              className={isFavorite ? 'fill-warning text-warning peppermint-glow' : 'text-muted-foreground'}
             />
           </button>
         )}

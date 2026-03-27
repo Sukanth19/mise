@@ -218,10 +218,10 @@ export default function DashboardPage() {
                 setSelectionMode(!selectionMode);
                 setSelectedRecipeIds(new Set());
               }}
-              className={`comic-button px-6 py-4 rounded-none ${
+              className={`comic-button px-8 py-4 rounded-none ${
                 selectionMode 
-                  ? 'bg-secondary text-secondary-foreground' 
-                  : 'bg-muted text-muted-foreground'
+                  ? 'bg-secondary text-secondary-foreground peppermint-glow' 
+                  : 'bg-primary text-primary-foreground'
               }`}
             >
               {selectionMode ? 'CANCEL SELECT' : 'SELECT RECIPES'}
@@ -238,7 +238,7 @@ export default function DashboardPage() {
 
         {/* Bulk Actions Toolbar */}
         {selectionMode && selectedRecipeIds.size > 0 && (
-          <div className="mb-6 comic-panel p-4 bg-secondary/10 border-secondary flex items-center justify-between">
+          <div className="mb-6 comic-panel p-4 bg-secondary/10 border-secondary flex items-center justify-between peppermint-glow-strong">
             <div className="flex items-center gap-4">
               <span className="font-black text-foreground uppercase">
                 {selectedRecipeIds.size} RECIPE{selectedRecipeIds.size !== 1 ? 'S' : ''} SELECTED
@@ -255,7 +255,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setShowAddToCollectionModal(true)}
-                className="comic-button px-4 py-2 bg-secondary text-secondary-foreground flex items-center gap-2"
+                className="comic-button px-4 py-2 bg-secondary text-secondary-foreground flex items-center gap-2 peppermint-glow"
               >
                 <FolderPlus size={18} strokeWidth={2.5} />
                 ADD TO COLLECTION
