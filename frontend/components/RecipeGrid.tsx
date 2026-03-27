@@ -2,7 +2,7 @@
 
 import { Recipe } from '@/types';
 import RecipeCard from './RecipeCard';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface RecipeGridProps {
   recipes: Recipe[];
@@ -33,18 +33,16 @@ export default function RecipeGrid({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <AnimatePresence mode="popLayout">
-        {recipes.map((recipe, index) => (
-          <RecipeCard 
-            key={recipe.id} 
-            recipe={recipe} 
-            index={index}
-            selectionMode={selectionMode}
-            isSelected={selectedRecipeIds.has(recipe.id)}
-            onToggleSelection={onToggleSelection}
-          />
-        ))}
-      </AnimatePresence>
+      {recipes.map((recipe, index) => (
+        <RecipeCard 
+          key={recipe.id} 
+          recipe={recipe} 
+          index={index}
+          selectionMode={selectionMode}
+          isSelected={selectedRecipeIds.has(recipe.id)}
+          onToggleSelection={onToggleSelection}
+        />
+      ))}
     </div>
   );
 }

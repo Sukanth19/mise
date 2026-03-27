@@ -123,9 +123,9 @@ export default function MealPlannerCalendar({
   // Get meal plans for a specific date and meal time
   const getMealPlansForSlot = (date: Date, mealTime: MealTime) => {
     const dateStr = formatDate(date);
-    return mealPlans.filter(
+    return mealPlans?.filter(
       (mp) => mp.meal_date === dateStr && mp.meal_time === mealTime
-    );
+    ) || [];
   };
 
   // Format display date

@@ -52,7 +52,8 @@ def _create_engine_with_config(database_url: str):
             configure_mysql_logging(engine, environment)
             log_connection_event("engine_created", f"MySQL engine created for {database_url.split('@')[1] if '@' in database_url else 'database'}", "info")
         except Exception as e:
-            logger.error(f"Failed to configure MySQL logging: {e}")
+            logger.warning(f"Failed to configure MySQL logging (non-critical): {e}")
+            # Continue without MySQL-specific logging
         
         return engine
     else:

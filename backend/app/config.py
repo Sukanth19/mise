@@ -86,6 +86,8 @@ class Settings(BaseSettings):
         Validate that database_type matches the configured database_url.
         Ensures only one database backend is active.
         
+        Provides helpful migration guidance when mismatch is detected.
+        
         Validates: Requirements 12.2, 12.5
         """
         database_type = self.database_type
@@ -101,9 +103,15 @@ class Settings(BaseSettings):
         if database_type in ['mysql', 'sqlite']:
             expected_prefix = type_to_prefix[database_type]
             if database_url and not database_url.startswith(expected_prefix):
+                migration_guide = (
+                    f"\n\nMigration Guide:"
+                    f"\n- If migrating from SQLite to MySQL, run: python backend/run_migrations.py"
+                    f"\n- If using SQLite, set DATABASE_TYPE=sqlite and DATABASE_URL=sqlite:///./recipe_saver.db"
+                    f"\n- If using MySQL, set DATABASE_TYPE=mysql and provide MySQL connection details"
+                )
                 raise ValueError(
                     f"DATABASE_TYPE is set to '{database_type}' but DATABASE_URL does not start with '{expected_prefix}'. "
-                    f"Ensure DATABASE_TYPE matches your DATABASE_URL configuration."
+                    f"Ensure DATABASE_TYPE matches your DATABASE_URL configuration.{migration_guide}"
                 )
         
         return self

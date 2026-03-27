@@ -145,8 +145,7 @@ async def get_public_recipe(
         "recipe": RecipeResponse.from_orm(result['recipe']),
         "author": {
             "id": str(result['author']['_id']),
-            "username": result['author']['username'],
-            "email": result['author'].get('email', '')
+            "username": result['author']['username']
         },
         "likes_count": result['likes_count'],
         "comments": [CommentResponse.from_orm(c) for c in result['comments']]
@@ -332,7 +331,7 @@ async def get_followers(
     
     return {
         "followers": [
-            {"id": str(u['_id']), "username": u['username'], "email": u.get('email', '')}
+            {"id": str(u['_id']), "username": u['username']}
             for u in followers
         ],
         "count": len(followers)
@@ -356,7 +355,7 @@ async def get_following(
     
     return {
         "following": [
-            {"id": str(u['_id']), "username": u['username'], "email": u.get('email', '')}
+            {"id": str(u['_id']), "username": u['username']}
             for u in following
         ],
         "count": len(following)

@@ -44,9 +44,9 @@ export default function CollectionCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ 
-        duration: 0.3, 
-        delay: index * 0.05,
-        ease: 'easeOut'
+        duration: 0.4, 
+        delay: index * 0.08,
+        ease: [0.4, 0, 0.2, 1]
       }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}

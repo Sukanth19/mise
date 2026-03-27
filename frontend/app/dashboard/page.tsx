@@ -9,6 +9,7 @@ import SearchBar from '@/components/SearchBar';
 import FilterPanel, { FilterOptions } from '@/components/FilterPanel';
 import AddToCollectionModal from '@/components/AddToCollectionModal';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { Trash2, FolderPlus, X } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -56,20 +57,20 @@ export default function DashboardPage() {
       }
       
       // Add filter parameters if provided
-      if (filterOptions) {
+      if (filterOptions && typeof filterOptions === 'object') {
         if (filterOptions.favorites !== undefined) {
           params.append('favorites', String(filterOptions.favorites));
         }
         if (filterOptions.minRating !== undefined) {
           params.append('min_rating', String(filterOptions.minRating));
         }
-        if (filterOptions.tags && filterOptions.tags.length > 0) {
+        if (Array.isArray(filterOptions.tags) && filterOptions.tags.length > 0) {
           params.append('tags', filterOptions.tags.join(','));
         }
-        if (filterOptions.dietaryLabels && filterOptions.dietaryLabels.length > 0) {
+        if (Array.isArray(filterOptions.dietaryLabels) && filterOptions.dietaryLabels.length > 0) {
           params.append('dietary_labels', filterOptions.dietaryLabels.join(','));
         }
-        if (filterOptions.excludeAllergens && filterOptions.excludeAllergens.length > 0) {
+        if (Array.isArray(filterOptions.excludeAllergens) && filterOptions.excludeAllergens.length > 0) {
           params.append('exclude_allergens', filterOptions.excludeAllergens.join(','));
         }
         if (filterOptions.sortBy) {
@@ -92,7 +93,9 @@ export default function DashboardPage() {
           ? `/api/recipes?search=${encodeURIComponent(search)}`
           : '/api/recipes';
       
+      // Fetch data
       const data = await apiClient<Recipe[]>(endpoint);
+      
       setRecipes(data);
       setFilteredRecipes(data);
       
@@ -112,18 +115,20 @@ export default function DashboardPage() {
   };
 
   const handleSearch = useCallback((query: string) => {
+    console.log('SEARCH CLICKED:', query);
     setSearchQuery(query);
     fetchRecipes(query.trim() === '' ? undefined : query, filters);
-  }, [filters]);
+  }, [filters, fetchRecipes]);
 
   const handleFilterChange = useCallback((newFilters: FilterOptions) => {
     setFilters(newFilters);
     fetchRecipes(searchQuery.trim() === '' ? undefined : searchQuery, newFilters);
-  }, [searchQuery]);
+  }, [searchQuery, fetchRecipes]);
 
-  const handleCreateRecipe = () => {
-    router.push('/recipes/new');
-  };
+  const handleCreateRecipe = useCallback(() => {
+    console.log('CREATE RECIPE CLICKED');
+    window.location.href = '/recipes/new';
+  }, []);
 
   const fetchCollections = async () => {
     try {
@@ -194,12 +199,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-background halftone-bg p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground font-black text-2xl uppercase">Loading recipes...</p>
-          </div>
-        </div>
+      <main className="min-h-screen bg-background halftone-bg p-8 flex items-center justify-center">
+        <LoadingSpinner variant="recipe" size="lg" text="Loading recipes..." />
       </main>
     );
   }
@@ -237,7 +238,7 @@ export default function DashboardPage() {
 
         {/* Bulk Actions Toolbar */}
         {selectionMode && selectedRecipeIds.size > 0 && (
-          <div className="mb-6 comic-panel p-4 bg-primary/10 border-primary flex items-center justify-between">
+          <div className="mb-6 comic-panel p-4 bg-secondary/10 border-secondary flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="font-black text-foreground uppercase">
                 {selectedRecipeIds.size} RECIPE{selectedRecipeIds.size !== 1 ? 'S' : ''} SELECTED
@@ -245,7 +246,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={handleSelectAll}
-                className="text-sm font-bold text-primary hover:underline uppercase"
+                className="text-sm font-bold text-secondary hover:underline uppercase"
               >
                 {selectedRecipeIds.size === filteredRecipes.length ? 'DESELECT ALL' : 'SELECT ALL'}
               </button>
@@ -348,7 +349,6 @@ export default function DashboardPage() {
           onConfirm={handleBulkDelete}
           title={`${selectedRecipeIds.size} recipe${selectedRecipeIds.size !== 1 ? 's' : ''}`}
           isDeleting={isDeleting}
-          itemType="recipe"
         />
       </div>
     </main>

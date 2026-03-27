@@ -49,7 +49,7 @@ export default function MealPlanCard({
   return (
     <motion.div
       draggable
-      onDragStart={handleDragStart}
+      onDragStart={(e) => handleDragStart(e as any as React.DragEvent)}
       onDragEnd={handleDragEnd}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: isDragging ? 0.5 : 1, scale: isDragging ? 0.95 : 1 }}

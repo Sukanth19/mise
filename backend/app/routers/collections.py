@@ -45,12 +45,12 @@ def get_current_user_id(authorization: str = Header(...)) -> int:
 def collection_to_response(collection: Collection, recipe_count: int = 0) -> CollectionResponse:
     """Convert Collection model to CollectionResponse schema."""
     return CollectionResponse(
-        id=str(collection.id),
-        user_id=str(collection.user_id),
+        id=collection.id,
+        user_id=collection.user_id,
         name=collection.name,
         description=collection.description,
         cover_image_url=collection.cover_image_url,
-        parent_collection_id=str(collection.parent_collection_id) if collection.parent_collection_id else None,
+        parent_collection_id=collection.parent_collection_id,
         nesting_level=collection.nesting_level or 0,
         share_token=collection.share_token,
         created_at=collection.created_at,
@@ -62,8 +62,8 @@ def collection_to_response(collection: Collection, recipe_count: int = 0) -> Col
 def recipe_to_response(recipe: Recipe) -> RecipeResponse:
     """Convert Recipe model to RecipeResponse schema."""
     return RecipeResponse(
-        id=str(recipe.id),
-        user_id=str(recipe.user_id),
+        id=recipe.id,
+        user_id=recipe.user_id,
         title=recipe.title,
         image_url=recipe.image_url,
         ingredients=json.loads(recipe.ingredients) if recipe.ingredients else [],
@@ -75,8 +75,8 @@ def recipe_to_response(recipe: Recipe) -> RecipeResponse:
         is_favorite=recipe.is_favorite or False,
         visibility=recipe.visibility or "private",
         servings=recipe.servings or 1,
-        source_recipe_id=str(recipe.source_recipe_id) if recipe.source_recipe_id else None,
-        source_author_id=str(recipe.source_author_id) if recipe.source_author_id else None
+        source_recipe_id=recipe.source_recipe_id,
+        source_author_id=recipe.source_author_id
     )
 
 
@@ -186,14 +186,15 @@ def get_collection(
             recipes.append(recipe_to_response(recipe))
     
     return {
-        "id": str(collection.id),
-        "user_id": str(collection.user_id),
+        "id": collection.id,
+        "user_id": collection.user_id,
         "name": collection.name,
         "description": collection.description,
         "cover_image_url": collection.cover_image_url,
-        "parent_collection_id": str(collection.parent_collection_id) if collection.parent_collection_id else None,
+        "parent_collection_id": collection.parent_collection_id,
         "nesting_level": collection.nesting_level or 0,
         "share_token": collection.share_token,
+        "recipe_count": len(recipes),
         "created_at": collection.created_at,
         "updated_at": collection.updated_at,
         "recipes": recipes
@@ -300,7 +301,7 @@ def delete_collection(
 @router.post("/{collection_id}/recipes")
 def add_recipes_to_collection(
     collection_id: int,
-    recipe_ids: List[str] = Body(..., embed=True),
+    recipe_ids: List[int] = Body(..., embed=True),
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -322,27 +323,27 @@ def add_recipes_to_collection(
             headers={"error_code": "FORBIDDEN"}
         )
     
-    # Convert recipe IDs to integers
-    recipe_id_ints = [int(rid) for rid in recipe_ids]
-    
     # Verify all recipes exist and belong to the user
     recipes = db.query(Recipe).filter(
         and_(
-            Recipe.id.in_(recipe_id_ints),
+            Recipe.id.in_(recipe_ids),
             Recipe.user_id == user_id
         )
     ).all()
     
-    if len(recipes) != len(recipe_id_ints):
+    found_recipe_ids = {recipe.id for recipe in recipes}
+    missing_recipe_ids = [rid for rid in recipe_ids if rid not in found_recipe_ids]
+    
+    if missing_recipe_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="One or more recipes not found or access denied",
+            detail=f"Recipes with IDs {missing_recipe_ids} not found or you don't have access to them",
             headers={"error_code": "VALIDATION_ERROR"}
         )
     
     # Add recipes to collection (skip duplicates)
     added_count = 0
-    for recipe_id in recipe_id_ints:
+    for recipe_id in recipe_ids:
         existing = db.query(CollectionRecipe).filter(
             and_(
                 CollectionRecipe.collection_id == collection_id,

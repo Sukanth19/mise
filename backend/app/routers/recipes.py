@@ -112,7 +112,7 @@ def bulk_delete_recipes(
     user_id: int = Depends(get_current_user_id)
 ):
     """Delete multiple recipes atomically."""
-    recipe_ids = [int(rid) for rid in request.recipe_ids]
+    recipe_ids = request.recipe_ids
     
     # Verify all recipes belong to the user
     recipes = db.query(Recipe).filter(
@@ -122,10 +122,13 @@ def bulk_delete_recipes(
         )
     ).all()
     
-    if len(recipes) != len(recipe_ids):
+    found_recipe_ids = {recipe.id for recipe in recipes}
+    missing_recipe_ids = [rid for rid in recipe_ids if rid not in found_recipe_ids]
+    
+    if missing_recipe_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="One or more recipes not found or access denied",
+            detail=f"Recipes with IDs {missing_recipe_ids} not found or you don't have access to them",
             headers={"error_code": "RECIPE_NOT_FOUND"}
         )
     
@@ -389,3 +392,122 @@ def duplicate_recipe(
     db.refresh(duplicated_recipe)
     
     return recipe_to_response(duplicated_recipe)
+
+
+# Rating endpoints
+@router.post("/{recipe_id}/rating", status_code=status.HTTP_201_CREATED)
+def create_rating(
+    recipe_id: int,
+    rating_data: dict,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Create a new rating for a recipe."""
+    from app.models import RecipeRating
+    
+    # Validate rating value
+    rating_value = rating_data.get("rating")
+    if not rating_value or not isinstance(rating_value, int) or rating_value < 1 or rating_value > 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rating must be between 1 and 5",
+            headers={"error_code": "INVALID_RATING"}
+        )
+    
+    # Check if recipe exists
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+    if not recipe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recipe not found",
+            headers={"error_code": "RECIPE_NOT_FOUND"}
+        )
+    
+    # Check if rating already exists
+    existing_rating = db.query(RecipeRating).filter(
+        RecipeRating.recipe_id == recipe_id,
+        RecipeRating.user_id == user_id
+    ).first()
+    
+    if existing_rating:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Rating already exists. Use PUT to update.",
+            headers={"error_code": "RATING_EXISTS"}
+        )
+    
+    # Create new rating
+    new_rating = RecipeRating(
+        recipe_id=recipe_id,
+        user_id=user_id,
+        rating=rating_value
+    )
+    db.add(new_rating)
+    db.commit()
+    db.refresh(new_rating)
+    
+    return {"rating": new_rating.rating}
+
+
+@router.put("/{recipe_id}/rating")
+def update_rating(
+    recipe_id: int,
+    rating_data: dict,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Update an existing rating for a recipe."""
+    from app.models import RecipeRating
+    
+    # Validate rating value
+    rating_value = rating_data.get("rating")
+    if not rating_value or not isinstance(rating_value, int) or rating_value < 1 or rating_value > 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rating must be between 1 and 5",
+            headers={"error_code": "INVALID_RATING"}
+        )
+    
+    # Find existing rating
+    existing_rating = db.query(RecipeRating).filter(
+        RecipeRating.recipe_id == recipe_id,
+        RecipeRating.user_id == user_id
+    ).first()
+    
+    if not existing_rating:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Rating not found. Use POST to create.",
+            headers={"error_code": "RATING_NOT_FOUND"}
+        )
+    
+    # Update rating
+    existing_rating.rating = rating_value
+    db.commit()
+    db.refresh(existing_rating)
+    
+    return {"rating": existing_rating.rating}
+
+
+@router.get("/{recipe_id}/rating")
+def get_rating(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Get the current user's rating for a recipe."""
+    from app.models import RecipeRating
+    
+    rating = db.query(RecipeRating).filter(
+        RecipeRating.recipe_id == recipe_id,
+        RecipeRating.user_id == user_id
+    ).first()
+    
+    if not rating:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Rating not found",
+            headers={"error_code": "RATING_NOT_FOUND"}
+        )
+    
+    return {"rating": rating.rating}

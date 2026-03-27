@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import LoginAnimation from './LoginAnimation';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -42,6 +43,14 @@ export default function AuthForm({ mode, onSubmit }: AuthFormProps) {
       setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-md flex items-center justify-center py-12">
+        <LoginAnimation />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6">

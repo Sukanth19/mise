@@ -2,7 +2,7 @@
 
 import { Collection } from '@/types';
 import CollectionCard from './CollectionCard';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface CollectionGridProps {
   collections: Collection[];
@@ -31,17 +31,15 @@ export default function CollectionGrid({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <AnimatePresence mode="popLayout">
-        {collections.map((collection, index) => (
-          <CollectionCard 
-            key={collection.id} 
-            collection={collection} 
-            index={index}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        ))}
-      </AnimatePresence>
+      {collections.map((collection, index) => (
+        <CollectionCard 
+          key={collection.id} 
+          collection={collection} 
+          index={index}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ))}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import CommentList from '@/components/CommentList';
 import CommentForm from '@/components/CommentForm';
 import ShareButtons from '@/components/ShareButtons';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
-import LoadingSkeleton from '@/components/LoadingSkeleton';
+import { RecipeDetailSkeleton } from '@/components/LoadingSkeleton';
 
 interface Comment {
   id: number;
@@ -115,7 +115,7 @@ export default function PublicRecipePage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <LoadingSkeleton variant="recipe-card" count={1} />
+          <RecipeDetailSkeleton />
         </div>
       </div>
     );

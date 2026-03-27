@@ -9,7 +9,14 @@ interface ImageUploadProps {
 }
 
 export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageUploadProps) {
-  const [preview, setPreview] = useState<string | null>(initialImageUrl || null);
+  // Construct full URL for initial image if it's a relative path
+  const initialFullUrl = initialImageUrl 
+    ? (initialImageUrl.startsWith('http') 
+        ? initialImageUrl 
+        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${initialImageUrl}`)
+    : null;
+    
+  const [preview, setPreview] = useState<string | null>(initialFullUrl);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -45,35 +52,48 @@ export default function ImageUpload({ onImageUploaded, initialImageUrl }: ImageU
       const formData = new FormData();
       formData.append('file', file);
 
+      const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/images/upload`;
+      console.log('Uploading to:', uploadUrl);
+
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 100);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/images/upload`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-          },
-          body: formData,
-        }
-      );
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: formData,
+      });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
 
+      console.log('Upload response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
-        throw new Error(errorData.detail || 'Upload failed');
+        const errorMessage = errorData.detail || errorData.message || 'Upload failed';
+        console.error('Upload failed:', errorMessage, errorData);
+        throw new Error(errorMessage);
       }
 
       const data: ImageUploadResponse = await response.json();
-      setPreview(data.url);
-      onImageUploaded(data.url);
+      console.log('Upload successful:', data);
+      
+      // Construct full URL for preview
+      const fullImageUrl = data.url.startsWith('http') 
+        ? data.url 
+        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${data.url}`;
+      
+      setPreview(fullImageUrl);
+      onImageUploaded(data.url); // Pass relative URL to parent
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload image');
+      console.error('Upload error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
+      setError(errorMessage);
     } finally {
       setUploading(false);
       setUploadProgress(0);

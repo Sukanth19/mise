@@ -73,7 +73,7 @@ export interface Collection {
   name: string;
   description?: string;
   cover_image_url?: string;
-  parent_collection_id?: number;
+  parent_collection_id?: number | null;
   nesting_level: number;
   share_token?: string;
   recipe_count?: number;

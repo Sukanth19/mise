@@ -1,37 +1,53 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { useTransition } from 'react';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { removeToken } from '@/lib/api';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '@/components/ThemeToggle';
+import { 
+  Home, 
+  FolderOpen, 
+  Calendar, 
+  ShoppingCart, 
+  Compass, 
+  LogOut,
+  Menu,
+  X
+} from 'lucide-react';
+import { useState } from 'react';
 
 export default function Header() {
-  const router = useRouter();
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Don't show header on login/register pages
   if (pathname === '/' || pathname === '/register') {
     return null;
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     removeToken();
-    router.push('/');
+    // Force a hard navigation to clear all state
+    window.location.href = '/';
   };
 
+  const navLinks = [
+    { href: '/dashboard', label: 'MY RECIPES', icon: Home },
+    { href: '/collections', label: 'COLLECTIONS', icon: FolderOpen },
+    { href: '/meal-planner', label: 'MEAL PLANNER', icon: Calendar },
+    { href: '/shopping-lists', label: 'SHOPPING', icon: ShoppingCart },
+    { href: '/discover', label: 'DISCOVER', icon: Compass },
+  ];
+
   return (
-    <header className="sticky top-0 z-50 border-b-[5px] border-border bg-background comic-border-thick">
+    <header className="sticky top-0 z-50 border-b-[5px] border-border bg-background comic-border-thick shadow-lg">
       <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
-        <button 
-          type="button"
-          onClick={() => {
-            if (pathname === '/dashboard') {
-              window.location.reload();
-            } else {
-              router.push('/dashboard');
-            }
-          }}
-          className="flex items-center gap-3 comic-button bg-primary text-primary-foreground px-4 py-2 rounded-none group"
+        {/* Logo - Left Side */}
+        <Link 
+          href="/dashboard"
+          className="flex items-center gap-3 comic-button bg-primary text-primary-foreground px-4 py-2 rounded-none group hover:scale-105 transition-transform"
         >
           <motion.svg 
             className="w-10 h-10" 
@@ -48,68 +64,101 @@ export default function Header() {
             <circle cx="42" cy="68" r="3" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
             <circle cx="55" cy="69" r="4" fill="#2D6A4F" stroke="#0D0D0D" strokeWidth="2"/>
           </motion.svg>
-          <h1 className="text-2xl comic-heading">MISE</h1>
-        </button>
+          <h1 className="text-2xl comic-heading hidden sm:block">MISE</h1>
+        </Link>
 
-        {/* Navigation Links */}
-        <nav className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => router.push('/collections')}
-            className={`comic-button px-4 py-2 text-sm ${
-              pathname.startsWith('/collections')
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground'
-            }`}
-          >
-            COLLECTIONS
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push('/meal-planner')}
-            className={`comic-button px-4 py-2 text-sm ${
-              pathname.startsWith('/meal-planner')
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground'
-            }`}
-          >
-            MEAL PLANNER
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push('/shopping-lists')}
-            className={`comic-button px-4 py-2 text-sm ${
-              pathname.startsWith('/shopping-lists')
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground'
-            }`}
-          >
-            SHOPPING
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push('/discover')}
-            className={`comic-button px-4 py-2 text-sm ${
-              pathname.startsWith('/discover')
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground'
-            }`}
-          >
-            DISCOVER
-          </button>
+        {/* Desktop Navigation - Center */}
+        <nav className="hidden lg:flex items-center gap-2 flex-1 justify-center">
+          {navLinks.map((link) => {
+            const Icon = link.icon;
+            const isActive = pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`comic-button px-4 py-2 text-sm flex items-center gap-2 transition-all ${
+                  isActive
+                    ? 'bg-secondary text-secondary-foreground scale-105'
+                    : 'bg-muted text-muted-foreground hover:bg-secondary/20 hover:scale-105'
+                }`}
+              >
+                <Icon size={18} strokeWidth={2.5} />
+                <span className="font-black">{link.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="flex items-center gap-4">
+        {/* Mobile Menu Button */}
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="lg:hidden comic-button p-3 bg-muted text-muted-foreground"
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? <X size={24} strokeWidth={2.5} /> : <Menu size={24} strokeWidth={2.5} />}
+        </button>
+
+        {/* Theme Toggle and Sign Out - Right Side */}
+        <div className="hidden lg:flex items-center gap-4">
           <ThemeToggle />
           <button
             type="button"
             onClick={handleSignOut}
-            className="comic-button px-6 py-3 rounded-none bg-accent hover:bg-accent-hover text-accent-foreground"
+            className="comic-button px-6 py-3 rounded-none bg-accent hover:bg-accent-hover text-accent-foreground flex items-center gap-2 hover:scale-105 transition-transform"
           >
-            SIGN OUT
+            <LogOut size={18} strokeWidth={2.5} />
+            <span className="font-black">SIGN OUT</span>
           </button>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="lg:hidden border-t-4 border-border bg-card overflow-hidden"
+          >
+            <nav className="container mx-auto px-4 py-4 space-y-2">
+              {navLinks.map((link) => {
+                const Icon = link.icon;
+                const isActive = pathname.startsWith(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`comic-button px-4 py-3 text-sm flex items-center gap-3 w-full ${
+                      isActive
+                        ? 'bg-secondary text-secondary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-secondary/20'
+                    }`}
+                  >
+                    <Icon size={20} strokeWidth={2.5} />
+                    <span className="font-black">{link.label}</span>
+                  </Link>
+                );
+              })}
+              <div className="flex items-center gap-2 pt-4 border-t-4 border-border">
+                <ThemeToggle />
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="comic-button px-6 py-3 rounded-none bg-accent hover:bg-accent-hover text-accent-foreground flex items-center gap-2 flex-1"
+                >
+                  <LogOut size={18} strokeWidth={2.5} />
+                  <span className="font-black">SIGN OUT</span>
+                </button>
+              </div>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
+

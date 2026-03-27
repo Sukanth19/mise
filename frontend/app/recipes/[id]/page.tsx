@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { apiClient, getToken } from '@/lib/api';
 import { Recipe } from '@/types';
 import RecipeDetail from '@/components/RecipeDetail';
@@ -65,10 +66,6 @@ export default function RecipeDetailPage() {
     }
   };
 
-  const handleBack = () => {
-    router.push('/dashboard');
-  };
-
   if (loading) {
     return (
       <main className="min-h-screen bg-background p-8">
@@ -92,13 +89,12 @@ export default function RecipeDetailPage() {
             <p className="text-muted-foreground mb-6">
               {error || 'Unable to load recipe'}
             </p>
-            <button
-              type="button"
-              onClick={handleBack}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 hover:shadow-lg hover:scale-105 transition-all duration-200"
+            <Link
+              href="/dashboard"
+              className="inline-block px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 hover:shadow-lg hover:scale-105 transition-all duration-200"
             >
               Back to Dashboard
-            </button>
+            </Link>
           </div>
         </div>
       </main>
@@ -109,10 +105,9 @@ export default function RecipeDetailPage() {
     <main className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
-        <button
-          type="button"
-          onClick={handleBack}
-          className="mb-6 flex items-center text-muted-foreground hover:text-foreground hover:scale-105 transition-all duration-200"
+        <Link
+          href="/dashboard"
+          className="mb-6 flex items-center text-secondary hover:text-secondary/80 hover:scale-105 transition-all duration-200 w-fit font-bold"
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -128,7 +123,7 @@ export default function RecipeDetailPage() {
             />
           </svg>
           Back to Dashboard
-        </button>
+        </Link>
 
         {/* Recipe Detail */}
         <RecipeDetail recipe={recipe} />

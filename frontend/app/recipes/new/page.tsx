@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { apiClient, getToken } from '@/lib/api';
 import { RecipeCreate, Recipe, RecipeUpdate } from '@/types';
 import RecipeForm from '@/components/RecipeForm';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function NewRecipePage() {
   const router = useRouter();
@@ -76,12 +77,8 @@ export default function NewRecipePage() {
 
   if (!mounted) {
     return (
-      <main className="min-h-screen bg-background p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
-        </div>
+      <main className="min-h-screen bg-background p-8 flex items-center justify-center">
+        <LoadingSpinner variant="recipe" size="lg" />
       </main>
     );
   }

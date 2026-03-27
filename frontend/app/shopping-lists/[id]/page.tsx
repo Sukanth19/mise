@@ -57,7 +57,7 @@ export default function ShoppingListDetailPage() {
         ...shoppingList,
         items: shoppingList.items?.map(item =>
           item.id === itemId ? { ...item, is_checked: isChecked } : item
-        ),
+        ) || [],
       });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update item');
@@ -75,7 +75,7 @@ export default function ShoppingListDetailPage() {
       // Update local state
       setShoppingList({
         ...shoppingList,
-        items: shoppingList.items?.filter(item => item.id !== itemId),
+        items: shoppingList.items?.filter(item => item.id !== itemId) || [],
       });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete item');

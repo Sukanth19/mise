@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, getToken } from '@/lib/api';
-import { Collection, CollectionCreate } from '@/types';
+import { Collection, CollectionCreate, CollectionUpdate } from '@/types';
 import CollectionGrid from '@/components/CollectionGrid';
 import CollectionForm from '@/components/CollectionForm';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus } from 'lucide-react';
 
@@ -37,7 +38,10 @@ export default function CollectionsPage() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Fetch data
       const data = await apiClient<{ collections: Collection[] }>('/api/collections');
+      
       setCollections(data.collections || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch collections');
@@ -47,7 +51,7 @@ export default function CollectionsPage() {
     }
   };
 
-  const handleCreateCollection = async (data: CollectionCreate) => {
+  const handleCreateCollection = async (data: CollectionCreate | CollectionUpdate) => {
     try {
       await apiClient('/api/collections', {
         method: 'POST',
@@ -60,7 +64,7 @@ export default function CollectionsPage() {
     }
   };
 
-  const handleEditCollection = async (data: CollectionCreate) => {
+  const handleEditCollection = async (data: CollectionCreate | CollectionUpdate) => {
     if (!selectedCollection) return;
 
     try {
@@ -106,12 +110,8 @@ export default function CollectionsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-background halftone-bg p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground font-black text-2xl uppercase">Loading collections...</p>
-          </div>
-        </div>
+      <main className="min-h-screen bg-background halftone-bg p-8 flex items-center justify-center">
+        <LoadingSpinner variant="collection" size="lg" text="Loading collections..." />
       </main>
     );
   }
@@ -171,7 +171,11 @@ export default function CollectionsPage() {
         {/* Create Collection Modal */}
         <AnimatePresence>
           {showCreateModal && (
-            <div
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
@@ -183,10 +187,13 @@ export default function CollectionsPage() {
               aria-labelledby="create-modal-title"
             >
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                initial={{ opacity: 0, scale: 0.9, y: 30 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                transition={{ 
+                  duration: 0.3,
+                  ease: [0.4, 0, 0.2, 1]
+                }}
                 className="comic-panel bg-card w-full max-w-3xl max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -211,14 +218,18 @@ export default function CollectionsPage() {
                   />
                 </div>
               </motion.div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
         {/* Edit Collection Modal */}
         <AnimatePresence>
           {showEditModal && selectedCollection && (
-            <div
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
@@ -231,10 +242,13 @@ export default function CollectionsPage() {
               aria-labelledby="edit-modal-title"
             >
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                initial={{ opacity: 0, scale: 0.9, y: 30 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                transition={{ 
+                  duration: 0.3,
+                  ease: [0.4, 0, 0.2, 1]
+                }}
                 className="comic-panel bg-card w-full max-w-3xl max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -264,7 +278,7 @@ export default function CollectionsPage() {
                   />
                 </div>
               </motion.div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
@@ -278,7 +292,6 @@ export default function CollectionsPage() {
           onConfirm={handleDeleteCollection}
           title={selectedCollection?.name || ''}
           isDeleting={isDeleting}
-          itemType="collection"
         />
       </div>
     </main>

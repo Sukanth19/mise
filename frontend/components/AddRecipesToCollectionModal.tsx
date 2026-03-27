@@ -1,59 +1,54 @@
 'use client';
 
-import { Collection } from '@/types';
-import { useState, useEffect, useMemo } from 'react';
+import { Recipe } from '@/types';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Folder, Check } from 'lucide-react';
+import { X, Check, Search } from 'lucide-react';
 
-interface AddToCollectionModalProps {
+interface AddRecipesToCollectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (collectionIds: number[]) => Promise<void>;
-  collections: Collection[];
-  recipeTitle?: string;
-  initialSelectedIds?: number[];
+  onSubmit: (recipeIds: number[]) => Promise<void>;
+  availableRecipes: Recipe[];
+  collectionName?: string;
 }
 
-export default function AddToCollectionModal({
+export default function AddRecipesToCollectionModal({
   isOpen,
   onClose,
   onSubmit,
-  collections,
-  recipeTitle,
-  initialSelectedIds = []
-}: AddToCollectionModalProps) {
-  const [selectedCollectionIds, setSelectedCollectionIds] = useState<Set<number>>(
-    new Set(initialSelectedIds)
-  );
+  availableRecipes,
+  collectionName
+}: AddRecipesToCollectionModalProps) {
+  const [selectedRecipeIds, setSelectedRecipeIds] = useState<Set<number>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Memoize collections to prevent re-renders
-  const stableCollections = useMemo(() => collections, [collections.length]);
-
-  // Reset state only when modal opens
+  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setSelectedCollectionIds(new Set(initialSelectedIds));
+      setSelectedRecipeIds(new Set());
       setError(null);
+      setSearchQuery('');
     }
   }, [isOpen]);
 
-  const handleToggleCollection = (collectionId: number) => {
-    setSelectedCollectionIds(prev => {
+  const handleToggleRecipe = (recipeId: number) => {
+    setSelectedRecipeIds(prev => {
       const newSelected = new Set(prev);
-      if (newSelected.has(collectionId)) {
-        newSelected.delete(collectionId);
+      if (newSelected.has(recipeId)) {
+        newSelected.delete(recipeId);
       } else {
-        newSelected.add(collectionId);
+        newSelected.add(recipeId);
       }
       return newSelected;
     });
   };
 
   const handleSubmit = async () => {
-    if (selectedCollectionIds.size === 0) {
-      setError('Please select at least one collection');
+    if (selectedRecipeIds.size === 0) {
+      setError('Please select at least one recipe');
       return;
     }
 
@@ -61,10 +56,10 @@ export default function AddToCollectionModal({
     setError(null);
 
     try {
-      await onSubmit(Array.from(selectedCollectionIds));
+      await onSubmit(Array.from(selectedRecipeIds));
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add to collections');
+      setError(err instanceof Error ? err.message : 'Failed to add recipes');
     } finally {
       setIsSubmitting(false);
     }
@@ -75,6 +70,11 @@ export default function AddToCollectionModal({
       onClose();
     }
   };
+
+  // Filter recipes based on search query
+  const filteredRecipes = availableRecipes.filter(recipe =>
+    recipe.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (!isOpen) return null;
 
@@ -104,9 +104,10 @@ export default function AddToCollectionModal({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b-4 border-border">
             <h2 id="modal-title" className="text-2xl font-black uppercase tracking-wide">
-              Add to Collections
+              Add Recipes
             </h2>
             <button
+              type="button"
               onClick={onClose}
               className="comic-button p-2 bg-secondary text-secondary-foreground"
               aria-label="Close modal"
@@ -117,9 +118,9 @@ export default function AddToCollectionModal({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
-            {recipeTitle && (
+            {collectionName && (
               <p className="text-sm text-muted-foreground font-medium mb-4">
-                Adding: <span className="font-bold">{recipeTitle}</span>
+                Adding to: <span className="font-bold">{collectionName}</span>
               </p>
             )}
 
@@ -132,27 +133,47 @@ export default function AddToCollectionModal({
               </div>
             )}
 
-            {stableCollections.length === 0 ? (
+            {/* Search Bar */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
+              <input
+                type="text"
+                placeholder="Search recipes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 comic-input"
+              />
+            </div>
+
+            {availableRecipes.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-4xl mb-2">📁</div>
-                <p className="text-muted-foreground font-bold">No collections yet</p>
+                <div className="text-4xl mb-2">🍳</div>
+                <p className="text-muted-foreground font-bold">No recipes available</p>
                 <p className="text-muted-foreground text-sm mt-2">
-                  Create a collection first to organize your recipes
+                  All your recipes are already in this collection
+                </p>
+              </div>
+            ) : filteredRecipes.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-2">🔍</div>
+                <p className="text-muted-foreground font-bold">No recipes found</p>
+                <p className="text-muted-foreground text-sm mt-2">
+                  Try a different search term
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                {stableCollections.map(collection => {
-                  const isSelected = selectedCollectionIds.has(collection.id);
-                  const nestingPaddingClass = collection.nesting_level === 0 ? '' : 
-                    collection.nesting_level === 1 ? 'pl-6' : 
-                    collection.nesting_level === 2 ? 'pl-12' : 'pl-[4.5rem]';
+                {filteredRecipes.map(recipe => {
+                  const isSelected = selectedRecipeIds.has(recipe.id);
+                  const imageUrl = recipe.image_url 
+                    ? `http://localhost:8000${recipe.image_url}` 
+                    : null;
                   
                   return (
                     <button
-                      key={collection.id}
+                      key={recipe.id}
                       type="button"
-                      onClick={() => handleToggleCollection(collection.id)}
+                      onClick={() => handleToggleRecipe(recipe.id)}
                       className={`
                         w-full flex items-center gap-3 p-4 comic-border rounded-none
                         transition-all duration-100
@@ -161,7 +182,7 @@ export default function AddToCollectionModal({
                           : 'bg-card hover:bg-muted'
                         }
                       `}
-                      aria-label={`${isSelected ? 'Remove from' : 'Add to'} ${collection.name}`}
+                      aria-label={`${isSelected ? 'Deselect' : 'Select'} ${recipe.title}`}
                     >
                       <div className="flex-shrink-0">
                         {isSelected ? (
@@ -173,26 +194,26 @@ export default function AddToCollectionModal({
                         )}
                       </div>
                       
-                      <Folder 
-                        size={20} 
-                        strokeWidth={2.5} 
-                        className="flex-shrink-0" 
-                      />
+                      {imageUrl && (
+                        <div className="w-12 h-12 flex-shrink-0 overflow-hidden comic-border">
+                          <img
+                            src={imageUrl}
+                            alt={recipe.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
                       
                       <div className="flex-1 text-left">
-                        <div className={`font-bold uppercase tracking-wide text-sm ${nestingPaddingClass}`}>
-                          {collection.name}
+                        <div className="font-bold uppercase tracking-wide text-sm">
+                          {recipe.title}
                         </div>
-                        {collection.description && (
-                          <div className="text-xs opacity-70 mt-1 line-clamp-1">
-                            {collection.description}
+                        {recipe.tags && recipe.tags.length > 0 && (
+                          <div className="text-xs opacity-70 mt-1">
+                            {recipe.tags.slice(0, 3).join(', ')}
                           </div>
                         )}
                       </div>
-                      
-                      <span className="text-xs opacity-70 font-bold">
-                        {collection.recipe_count || 0} recipes
-                      </span>
                     </button>
                   );
                 })}
@@ -201,7 +222,7 @@ export default function AddToCollectionModal({
           </div>
 
           {/* Footer */}
-          {stableCollections.length > 0 && (
+          {availableRecipes.length > 0 && (
             <div className="flex gap-4 p-6 border-t-4 border-border">
               <button
                 type="button"
@@ -214,12 +235,12 @@ export default function AddToCollectionModal({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting || selectedCollectionIds.size === 0}
+                disabled={isSubmitting || selectedRecipeIds.size === 0}
                 className="flex-1 comic-button bg-primary text-primary-foreground py-3 px-6 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting 
                   ? 'ADDING...' 
-                  : `ADD TO ${selectedCollectionIds.size} COLLECTION${selectedCollectionIds.size !== 1 ? 'S' : ''}`
+                  : `ADD ${selectedRecipeIds.size} RECIPE${selectedRecipeIds.size !== 1 ? 'S' : ''}`
                 }
               </button>
             </div>

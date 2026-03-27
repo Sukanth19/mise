@@ -9,6 +9,7 @@ import TemplateForm from '@/components/TemplateForm';
 import TemplateList from '@/components/TemplateList';
 import EmptyState from '@/components/EmptyState';
 import NutritionSummary from '@/components/NutritionSummary';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { Calendar, Download, Plus, Search, X, FileText, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -66,7 +67,7 @@ export default function MealPlannerPage() {
         apiClient<{ meal_plans: MealPlan[] }>(
           `/api/meal-plans?start_date=${dateRange.start}&end_date=${dateRange.end}`
         ),
-        apiClient<{ recipes: Recipe[] }>('/api/recipes'),
+        apiClient<Recipe[]>('/api/recipes'), // Backend returns array directly
         apiClient<{ templates: MealPlanTemplate[] }>('/api/meal-plan-templates'),
         apiClient<NutritionSummaryResponse>(
           `/api/meal-plans/nutrition-summary?start_date=${dateRange.start}&end_date=${dateRange.end}`
@@ -74,7 +75,7 @@ export default function MealPlannerPage() {
       ]);
       
       setMealPlans(mealPlansData.meal_plans || []);
-      setRecipes(recipesData.recipes || []);
+      setRecipes(recipesData || []); // Use recipesData directly since it's an array
       setTemplates(templatesData.templates || []);
       setNutritionSummary(nutritionData);
     } catch (err) {
@@ -218,9 +219,9 @@ export default function MealPlannerPage() {
   };
 
   // Filter recipes based on search query
-  const filteredRecipes = (recipes || []).filter(recipe =>
+  const filteredRecipes = Array.isArray(recipes) ? recipes.filter(recipe =>
     recipe.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) : [];
 
   // Handle recipe drag start
   const handleDragStart = (e: React.DragEvent, recipe: Recipe) => {
@@ -239,12 +240,8 @@ export default function MealPlannerPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-background halftone-bg p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground font-black text-2xl uppercase">Loading meal planner...</p>
-          </div>
-        </div>
+      <main className="min-h-screen bg-background halftone-bg p-8 flex items-center justify-center">
+        <LoadingSpinner variant="default" size="lg" text="Loading meal planner..." />
       </main>
     );
   }

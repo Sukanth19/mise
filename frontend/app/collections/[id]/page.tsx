@@ -6,7 +6,7 @@ import { apiClient, getToken } from '@/lib/api';
 import { Collection, Recipe } from '@/types';
 import RecipeGrid from '@/components/RecipeGrid';
 import CollectionTree from '@/components/CollectionTree';
-import AddToCollectionModal from '@/components/AddToCollectionModal';
+import AddRecipesToCollectionModal from '@/components/AddRecipesToCollectionModal';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Plus, Share2, Folder, X } from 'lucide-react';
 
@@ -159,7 +159,7 @@ export default function CollectionDetailPage() {
 
   // Get recipes that are not already in this collection for the add modal
   const availableRecipes = allRecipes.filter(
-    recipe => !collection.recipes.some(r => r.id === recipe.id)
+    recipe => collection.recipes && !collection.recipes.some(r => r.id === recipe.id)
   );
 
   return (
@@ -271,14 +271,14 @@ export default function CollectionDetailPage() {
         </motion.div>
 
         {/* Add Recipes Modal */}
-        <AddToCollectionModal
+        <AddRecipesToCollectionModal
           isOpen={showAddRecipesModal}
           onClose={() => setShowAddRecipesModal(false)}
           onSubmit={async (recipeIds) => {
             await handleAddRecipes(recipeIds);
           }}
-          collections={[collection]}
-          initialSelectedIds={[collection.id]}
+          availableRecipes={availableRecipes}
+          collectionName={collection.name}
         />
 
         {/* Share Modal */}

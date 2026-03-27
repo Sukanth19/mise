@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import FollowButton from './FollowButton';
 import PublicRecipeCard from './PublicRecipeCard';
-import LoadingSkeleton from './LoadingSkeleton';
+import { RecipeGridSkeleton } from './LoadingSkeleton';
 import EmptyState from './EmptyState';
 
 interface User {
@@ -92,9 +92,9 @@ export default function UserProfile({ userId, currentUserId }: UserProfileProps)
     return (
       <div className="space-y-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <LoadingSkeleton variant="recipe-card" count={1} />
+          <RecipeGridSkeleton count={1} />
         </div>
-        <LoadingSkeleton variant="recipe-card" count={3} />
+        <RecipeGridSkeleton count={3} />
       </div>
     );
   }

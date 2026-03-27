@@ -14,6 +14,7 @@ interface CollectionTreeProps {
 interface CollectionTreeNodeProps {
   collection: Collection;
   children: Collection[];
+  allCollections: Collection[];
   onCollectionClick?: (collection: Collection) => void;
   selectedCollectionId?: number;
   level: number;
@@ -21,7 +22,8 @@ interface CollectionTreeNodeProps {
 
 function CollectionTreeNode({ 
   collection, 
-  children, 
+  children,
+  allCollections,
   onCollectionClick,
   selectedCollectionId,
   level 
@@ -114,7 +116,7 @@ function CollectionTreeNode({
             className="overflow-hidden"
           >
             {children.map(child => {
-              const grandchildren = collections.filter(
+              const grandchildren = allCollections.filter(
                 c => c.parent_collection_id === child.id
               );
               return (
@@ -122,6 +124,7 @@ function CollectionTreeNode({
                   key={child.id}
                   collection={child}
                   children={grandchildren}
+                  allCollections={allCollections}
                   onCollectionClick={onCollectionClick}
                   selectedCollectionId={selectedCollectionId}
                   level={level + 1}
@@ -140,10 +143,13 @@ export default function CollectionTree({
   onCollectionClick,
   selectedCollectionId 
 }: CollectionTreeProps) {
+  // Ensure collections is an array
+  const safeCollections = Array.isArray(collections) ? collections : [];
+  
   // Build tree structure - get root collections (no parent)
-  const rootCollections = collections.filter(c => !c.parent_collection_id);
+  const rootCollections = safeCollections.filter(c => !c.parent_collection_id);
 
-  if (collections.length === 0) {
+  if (safeCollections.length === 0) {
     return (
       <div className="text-center py-8 comic-panel">
         <div className="text-4xl mb-2">📁</div>
@@ -155,7 +161,7 @@ export default function CollectionTree({
   return (
     <div className="comic-panel p-4 space-y-1">
       {rootCollections.map(collection => {
-        const children = collections.filter(
+        const children = safeCollections.filter(
           c => c.parent_collection_id === collection.id
         );
         return (
@@ -163,6 +169,7 @@ export default function CollectionTree({
             key={collection.id}
             collection={collection}
             children={children}
+            allCollections={safeCollections}
             onCollectionClick={onCollectionClick}
             selectedCollectionId={selectedCollectionId}
             level={0}

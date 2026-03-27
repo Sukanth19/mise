@@ -27,12 +27,32 @@ class UserResponse(BaseModel):
 
 
 class RecipeCreate(BaseModel):
-    title: str
-    image_url: Optional[str] = None
-    ingredients: List[str]
-    steps: List[str]
-    tags: Optional[List[str]] = None
-    reference_link: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=500)
+    image_url: Optional[str] = Field(None, max_length=1000)
+    ingredients: List[str] = Field(..., min_length=1, description="List of ingredients")
+    steps: List[str] = Field(..., min_length=1, description="List of preparation steps")
+    tags: Optional[List[str]] = Field(None, max_length=50)
+    reference_link: Optional[str] = Field(None, max_length=1000)
+    
+    @classmethod
+    def validate_ingredients(cls, v):
+        """Validate that ingredients list is not empty and items are strings."""
+        if not v or len(v) == 0:
+            raise ValueError("At least one ingredient is required")
+        for ingredient in v:
+            if not isinstance(ingredient, str) or not ingredient.strip():
+                raise ValueError("Each ingredient must be a non-empty string")
+        return v
+    
+    @classmethod
+    def validate_steps(cls, v):
+        """Validate that steps list is not empty and items are strings."""
+        if not v or len(v) == 0:
+            raise ValueError("At least one step is required")
+        for step in v:
+            if not isinstance(step, str) or not step.strip():
+                raise ValueError("Each step must be a non-empty string")
+        return v
 
 
 class RecipeUpdate(BaseModel):
@@ -66,6 +86,8 @@ class RecipeResponse(BaseModel):
     is_favorite: Optional[bool] = False
     visibility: Optional[str] = 'private'
     servings: Optional[int] = 1
+    source_recipe_id: Optional[int] = None
+    source_author_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -165,6 +187,7 @@ class CollectionResponse(BaseModel):
     parent_collection_id: Optional[int]
     nesting_level: int
     share_token: Optional[str]
+    recipe_count: int = 0
     created_at: datetime
     updated_at: datetime
 

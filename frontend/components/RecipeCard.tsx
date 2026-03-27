@@ -38,10 +38,10 @@ export default function RecipeCard({
   const fetchAverageRating = async () => {
     try {
       setIsLoadingRating(true);
-      // This would need a backend endpoint to get average rating
-      // For now, we'll just set it to 0
-      setAverageRating(0);
+      const response = await apiClient<{ rating: number }>(`/api/recipes/${recipe.id}/rating`);
+      setAverageRating(response.rating);
     } catch (err) {
+      // No rating found for this recipe by the current user
       setAverageRating(0);
     } finally {
       setIsLoadingRating(false);
@@ -89,15 +89,15 @@ export default function RecipeCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ 
-        duration: 0.3, 
-        delay: index * 0.05,
-        ease: 'easeOut'
+        duration: 0.4, 
+        delay: index * 0.08,
+        ease: [0.4, 0, 0.2, 1]
       }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={handleClick}
       className={`cursor-pointer comic-panel rounded-none overflow-hidden transition-all duration-100 hover:translate-x-1 hover:translate-y-1 hover:shadow-none group ${
-        isSelected ? 'ring-4 ring-primary' : ''
+        isSelected ? 'ring-4 ring-secondary' : ''
       }`}
       role="button"
       tabIndex={0}
@@ -181,8 +181,8 @@ export default function RecipeCard({
           ) : (
             <>
               <RatingStars value={averageRating} readOnly size="sm" />
-              <span className="text-xs text-muted-foreground">
-                {averageRating > 0 ? `(${averageRating.toFixed(1)})` : '(No ratings yet)'}
+              <span className="text-xs text-muted-foreground font-bold">
+                {averageRating > 0 ? 'YOUR RATING' : 'NOT RATED'}
               </span>
             </>
           )}

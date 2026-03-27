@@ -41,10 +41,13 @@ export default function RecipeDetail({ recipe }: RecipeDetailProps) {
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
 
   useEffect(() => {
-    fetchUserRating();
-    fetchCollections();
-    fetchNutritionData();
-    fetchNotes();
+    // Fetch all data in parallel to reduce loading time
+    Promise.all([
+      fetchUserRating(),
+      fetchCollections(),
+      fetchNutritionData(),
+      fetchNotes()
+    ]);
   }, [recipe.id]);
 
   const fetchUserRating = async () => {
